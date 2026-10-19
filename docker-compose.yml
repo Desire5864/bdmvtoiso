@@ -1,0 +1,19 @@
+services:
+  bdmvtoiso:
+    image: ghcr.io/desire5864/bdmvtoiso:latest
+    container_name: bdmvtoiso
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      # 蓝光源目录（BDMV 的上一级）
+      - /volume1/downloads/原盘:/app/data
+      # 打包出的 ISO
+      - /volume1/Storage/ISO:/app/updata
+      # 外部 ISO 库（可选）
+      - /volume1/downloads/ISO:/app/iso
+      # 账号与哈希缓存（首次启动自动生成 admin/admin123）
+      - ./config:/app/config
+    environment:
+      # 可选：覆盖 qBittorrent webhook 的校验令牌，默认 aiying
+      TZ: Asia/Shanghai

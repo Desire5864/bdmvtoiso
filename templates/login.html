@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark light" />
+<title>登录 · BDMV → ISO</title>
+<style>
+  :root{
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --mono: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace;
+    --bg:#0A0D13; --surface:#10151F; --line:rgba(255,255,255,.075);
+    --text:#E9EEF7; --muted:#7C8AA0;
+    --accent:#5B8CFF; --accent-soft:rgba(91,140,255,.14);
+    --err:#FF7085; --err-soft:rgba(255,112,133,.13);
+  }
+  html[data-theme="light"]{
+    --bg:#F5F6F8; --surface:#FFFFFF; --line:#E3E7ED;
+    --text:#0F172A; --muted:#6B7688;
+    --accent:#3B6BF5; --accent-soft:rgba(59,107,245,.09);
+    --err:#D9455F; --err-soft:rgba(217,69,95,.10);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;min-height:100vh;background:var(--bg);color:var(--text);
+    font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased;
+    display:grid;place-items:center;padding:20px;
+  }
+  .wrap{width:100%;max-width:392px}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:26px}
+  .brand svg{width:34px;height:34px;color:var(--accent);flex:none}
+  .brand b{display:block;font-size:14px;font-weight:500;letter-spacing:.01em}
+  .brand small{display:block;font-size:10px;letter-spacing:.16em;color:var(--muted);margin-top:2px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px}
+  h1{margin:0;font-size:17px;font-weight:500}
+  .sub{margin:6px 0 20px;font-size:12.5px;color:var(--muted)}
+  label{display:block;font-size:12px;color:var(--muted);margin:0 0 6px}
+  input{
+    width:100%;height:40px;padding:0 12px;margin-bottom:14px;
+    background:transparent;border:1px solid var(--line);border-radius:9px;
+    color:var(--text);font:14px var(--sans);outline:none;transition:border-color .15s,box-shadow .15s;
+  }
+  input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  button{
+    width:100%;height:40px;margin-top:4px;border:0;border-radius:9px;
+    background:var(--accent);color:#fff;font:500 13.5px var(--sans);cursor:pointer;transition:filter .15s;
+  }
+  button:hover{filter:brightness(1.07)}
+  .err{margin-top:14px;padding:9px 12px;border-radius:9px;background:var(--err-soft);color:var(--err);font-size:12.5px}
+  .hint{margin-top:18px;font-size:11.5px;color:var(--muted);line-height:1.7}
+  .hint code{font-family:var(--mono);font-size:11px;color:var(--text)}
+</style>
+</head>
+<body>
+  <script>
+    try { if (localStorage.getItem('iso-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}
+  </script>
+  <div class="wrap">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="17.2" stroke="currentColor" stroke-opacity=".35"/>
+        <circle cx="20" cy="20" r="11.4" stroke="currentColor" stroke-opacity=".22"/>
+        <path d="M20 3.2a16.8 16.8 0 0 1 15.6 10.6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="20" cy="20" r="4.2" fill="currentColor"/>
+      </svg>
+      <div><b>BDMV → ISO</b><small>DISC STUDIO</small></div>
+    </div>
+
+    <div class="card">
+      <h1>登录</h1>
+      <p class="sub">输入账号密码进入打包工作台</p>
+      <form method="post" action="/login">
+        <label for="username">账号</label>
+        <input id="username" name="username" autocomplete="username" autofocus />
+        <label for="password">密码</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" />
+        <button type="submit">登录</button>
+      </form>
+      {% if error %}<div class="err">{{ error }}</div>{% endif %}
+      <p class="hint">源目录 <code>data/</code> · 产物 <code>updata/</code> · 外部镜像 <code>iso/</code></p>
+    </div>
+  </div>
+</body>
+</html>

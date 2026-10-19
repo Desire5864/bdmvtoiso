@@ -1,0 +1,1041 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>BDMV → ISO · 打包工作台</title>
+<style>
+  :root{
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    --mono: ui-monospace, "JetBrains Mono", "SF Mono", Consolas, monospace;
+    --bg:#0A0D13; --surface:#10151F; --surface-2:#161E2B; --rail:#0C111A;
+    --line:rgba(255,255,255,.075); --line-strong:rgba(255,255,255,.16);
+    --text:#E9EEF7; --muted:#7C8AA0;
+    --accent:#5B8CFF; --accent-2:#3DDC97; --accent-soft:rgba(91,140,255,.14);
+    --ok:#3DDC97; --ok-soft:rgba(61,220,151,.13);
+    --warn:#E9B055; --err:#FF7085; --err-soft:rgba(255,112,133,.13);
+  }
+  html[data-theme="light"]{
+    --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#EDF0F5; --rail:#FFFFFF;
+    --line:#E3E7ED; --line-strong:#CBD3DE;
+    --text:#0F172A; --muted:#6B7688;
+    --accent:#3B6BF5; --accent-2:#0FA97A; --accent-soft:rgba(59,107,245,.09);
+    --ok:#12996A; --ok-soft:rgba(18,153,106,.10);
+    --warn:#A9711A; --err:#D9455F; --err-soft:rgba(217,69,95,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+  input{font:inherit}
+  ::selection{background:var(--accent-soft)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .app{display:grid;grid-template-columns:246px 1fr;min-height:100vh}
+  .rail{position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:26px;padding:22px 14px;border-right:1px solid var(--line);background:var(--rail)}
+  .brand{display:flex;align-items:center;gap:10px;padding:2px 8px 0}
+  .brand svg{width:32px;height:32px;color:var(--accent);flex:none}
+  .brand b{display:block;font-size:13.5px;font-weight:600;letter-spacing:.01em}
+  .brand small{display:block;font:11px/1.4 var(--mono);color:var(--muted);letter-spacing:.06em}
+  .rail-sec{font-size:10.5px;letter-spacing:.12em;color:var(--muted);padding:0 10px;text-transform:uppercase}
+  .nav{display:flex;flex-direction:column;gap:2px}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;color:var(--muted);font-size:13.5px;text-align:left;transition:background .15s,color .15s}
+  .nav-item:hover{background:var(--surface);color:var(--text)}
+  .nav-item[aria-current="true"]{background:var(--accent-soft);color:var(--accent);font-weight:500}
+  .nav-item svg{width:17px;height:17px;flex:none}
+  .nav-item .count{margin-left:auto;font:11px var(--mono);color:var(--muted);background:var(--surface-2);padding:1px 6px;border-radius:999px}
+  .nav-item[aria-current="true"] .count{background:transparent;color:var(--accent)}
+  .rail-foot{margin-top:auto}
+  .user{display:flex;align-items:center;gap:10px;padding:9px;border-radius:10px;border:1px solid var(--line);background:var(--surface)}
+  .avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:12px;font-weight:600;flex:none}
+  .u-name{font-size:12.5px;font-weight:500;line-height:1.3}
+  .u-meta{font-size:11px;color:var(--muted);font-family:var(--mono)}
+
+  .main{min-width:0;display:flex;flex-direction:column}
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:12px 26px;border-bottom:1px solid var(--line);background:var(--bg)}
+  .search{position:relative;flex:1;max-width:420px}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--muted)}
+  .search input{width:100%;height:36px;padding:0 42px 0 33px;border-radius:9px;border:1px solid var(--line);background:var(--surface);color:var(--text);outline:none;font-size:13px}
+  .search input::placeholder{color:var(--muted)}
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .kbd{position:absolute;right:8px;top:50%;transform:translateY(-50%);font:10.5px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:1px 5px;background:var(--surface-2)}
+  .engine{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border:1px solid var(--line);border-radius:999px;font:11.5px var(--mono);color:var(--muted);background:var(--surface);white-space:nowrap}
+  .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none;display:inline-block}
+  .engine .dot{background:var(--ok)}
+  .icon-btn{width:34px;height:34px;border-radius:8px;display:grid;place-items:center;color:var(--muted);border:1px solid transparent;transition:.15s}
+  .icon-btn:hover{background:var(--surface);color:var(--text);border-color:var(--line)}
+  .icon-btn svg{width:16px;height:16px}
+
+  .page{width:100%;max-width:1240px;padding:26px 26px 60px}
+  .page[hidden]{display:none}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+  h1{margin:0;font-size:21px;font-weight:600;letter-spacing:-.015em}
+  .sub{margin:5px 0 0;font-size:12.5px;color:var(--muted)}
+  .sub code{font-family:var(--mono);font-size:11.5px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+  .stat dt{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .stat dd{margin:6px 0 0;font-size:23px;font-weight:600;letter-spacing:-.025em;font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:4px}
+  .stat dd em{font-style:normal;font-size:11.5px;color:var(--muted);font-weight:400}
+
+  .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .seg{display:inline-flex;padding:3px;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:9px}
+  .seg button{padding:5px 11px;border-radius:6px;font-size:12.5px;color:var(--muted);transition:.15s}
+  .seg button:hover{color:var(--text)}
+  .seg button[aria-pressed="true"]{background:var(--surface-2);color:var(--text);font-weight:500}
+  .seg button b{font-weight:500;font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:4px}
+  .seg button[aria-pressed="true"] b{color:var(--accent)}
+  .spacer{flex:1}
+
+  .grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+  .card{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:13px;transition:border-color .18s}
+  .card:hover{border-color:var(--line-strong)}
+  .disc-row{padding:15px 18px;gap:11px}
+  .head-right{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end;padding-top:2px}
+  .card-head{display:flex;gap:11px;align-items:flex-start}
+  .card-head .grow{flex:1;min-width:0}
+  .thumb{width:38px;height:38px;flex:none;color:var(--accent);opacity:.85;margin-top:1px}
+  .ttl{font-size:14px;font-weight:600;line-height:1.4;word-break:break-word}
+  .meta{font:11.5px/1.5 var(--mono);color:var(--muted);margin-top:3px;word-break:break-all}
+
+  .prog{display:flex;flex-direction:column;gap:6px}
+  .prog-top{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .prog-top b{font-weight:500;color:var(--text);font-family:var(--mono)}
+  .bar{height:6px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .65s linear}
+  .bar.run i{background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+  .bar.done i{background:var(--ok)}
+  .bar.mini{height:4px;margin-top:6px;max-width:260px}
+
+  .chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:11.5px;white-space:nowrap;flex:none}
+  .chip.idle{background:var(--surface-2);color:var(--muted)}
+  .chip.run{background:var(--accent-soft);color:var(--accent)}
+  .chip.done{background:var(--ok-soft);color:var(--ok)}
+  .chip.err{background:var(--err-soft);color:var(--err)}
+  .chip.run .dot{animation:pulse 1.3s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
+
+  .actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+  .btn{display:inline-flex;align-items:center;gap:6px;height:31px;padding:0 11px;border-radius:8px;font-size:12.5px;border:1px solid var(--line);color:var(--text);transition:.15s;white-space:nowrap}
+  .btn:hover{background:var(--surface-2)}
+  .btn svg{width:13px;height:13px}
+  .btn.primary{background:var(--accent);border-color:transparent;color:#fff}
+  .btn.primary:hover{filter:brightness(1.1)}
+  .btn.danger{color:var(--err)}
+  .btn.danger:hover{background:var(--err-soft);border-color:transparent}
+  .btn.sm{height:28px;padding:0 9px;font-size:12px}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.ghost{border-color:transparent;color:var(--muted)}
+  .btn.ghost:hover{color:var(--text);background:var(--surface-2)}
+
+  .link{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px 6px 10px;font:11px var(--mono);color:var(--muted)}
+  .link span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .link button{flex:none;display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-size:11px;font-family:var(--sans);padding:2px 4px;border-radius:4px}
+  .link button:hover{background:var(--accent-soft)}
+
+  .units{border-top:1px solid var(--line);display:flex;flex-direction:column}
+  .unit{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
+  .unit:last-child{border-bottom:0;padding-bottom:0}
+  .u-name{font-size:12.5px;font-weight:500}
+  .u-main .meta{margin-top:1px}
+  .u-right{display:flex;align-items:center;gap:10px}
+
+  table{width:100%;border-collapse:separate;border-spacing:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  th{text-align:left;font-weight:500;font-size:11px;letter-spacing:.03em;color:var(--muted);padding:9px 16px;background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:11px 16px;border-bottom:1px solid var(--line);font-size:12.5px;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  tbody tr:hover td{background:var(--surface-2)}
+  td .fname{font-family:var(--mono);font-size:11.5px;word-break:break-all}
+  td .fsize{font-family:var(--mono);font-size:11.5px;color:var(--muted);white-space:nowrap}
+  .row-actions{display:flex;gap:6px;justify-content:flex-end}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:4px 18px;margin-bottom:14px}
+  .panel > h2{margin:16px 0 2px;font-size:13px;font-weight:600;letter-spacing:.01em}
+  .panel > .panel-sub{margin:0 0 6px;font-size:11.5px;color:var(--muted)}
+  .row{display:flex;gap:18px;align-items:center;padding:13px 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:0}
+  .row .grow{flex:1;min-width:0}
+  .row h3{margin:0;font-size:13px;font-weight:500}
+  .row p{margin:3px 0 0;font-size:12px;color:var(--muted);line-height:1.5}
+  .switch{width:38px;height:22px;flex:none;border-radius:999px;background:var(--surface-2);border:1px solid var(--line);position:relative;transition:.18s}
+  .switch i{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--muted);transition:.18s}
+  .switch[aria-checked="true"]{background:var(--accent);border-color:transparent}
+  .switch[aria-checked="true"] i{left:18px;background:#fff}
+  .code{display:flex;align-items:center;gap:8px;margin:10px 0 4px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font:11.5px var(--mono);overflow:auto}
+  .code span{flex:1;white-space:nowrap}
+  .code button{color:var(--accent);font:11.5px var(--sans);display:inline-flex;align-items:center;gap:4px}
+  .field{display:flex;flex-direction:column;gap:5px;margin:10px 0}
+  .field label{font-size:11.5px;color:var(--muted)}
+  .field input{height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);outline:none;font-size:13px}
+  .field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .form-2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+
+  .empty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:52px 16px;border:1px dashed var(--line-strong);border-radius:14px;color:var(--muted);font-size:12.5px;text-align:center}
+  .empty svg{width:26px;height:26px;opacity:.6}
+
+  #toasts{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:8px;z-index:90}
+  .toast{background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:9px 13px;font-size:12.5px;box-shadow:0 8px 26px rgba(0,0,0,.22);animation:in .22s ease-out}
+  .toast.out{opacity:0;transform:translateY(6px);transition:.24s}
+  @keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  .mask{position:fixed;inset:0;background:rgba(4,7,12,.55);display:grid;place-items:center;z-index:80;padding:18px}
+  .mask[hidden]{display:none}
+  .modal{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--line-strong);border-radius:14px;padding:18px}
+  .modal h3{margin:0 0 4px;font-size:14px}
+  .modal p{margin:0 0 12px;font-size:12px;color:var(--muted)}
+  .modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+
+  .foot-note{margin-top:22px;font-size:11px;color:var(--muted);font-family:var(--mono)}
+
+  @media (max-width:1120px){
+    .app{grid-template-columns:68px 1fr}
+    .rail{padding:18px 10px;gap:20px}
+    .brand b,.brand small,.rail-sec,.nav-item span.lbl,.user .u-info{display:none}
+    .brand{justify-content:center;padding:0}
+    .nav-item{justify-content:center;padding:10px 0}
+    .nav-item .count{display:none}
+    .user{justify-content:center;padding:8px}
+  }
+  @media (max-width:860px){
+    .app{grid-template-columns:1fr}
+    .rail{position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;flex-direction:row;align-items:center;border-right:0;border-top:1px solid var(--line);padding:6px 8px;z-index:60;gap:0}
+    .brand,.rail-sec,.rail-foot{display:none}
+    .rail > div:not(.brand):not(.rail-foot){display:contents}
+    .nav{flex:1;flex-direction:row;justify-content:space-between;gap:0}
+    .nav-item{flex-direction:column;gap:3px;font-size:10px;padding:6px 2px;flex:1;min-width:0;white-space:nowrap}
+    .nav-item span.lbl{display:block}
+    .nav-item svg{width:18px;height:18px}
+    .page{padding:18px 15px 100px}
+    .topbar{padding:10px 15px;gap:8px}
+    .spacer,#refreshBtn,.engine,.kbd{display:none}
+    .search{max-width:none;min-width:0}
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .grid{grid-template-columns:1fr}
+    .disc-row,.card-head{gap:10px}
+    .card-head{flex-wrap:wrap}
+    .head-right{flex-basis:100%;justify-content:flex-start;margin-left:49px;margin-top:2px}
+    .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .table-scroll table{min-width:0}
+    .c-ed2k{display:none}
+    td .row-actions{gap:4px}
+    .form-2{grid-template-columns:1fr}
+    #toasts{bottom:78px;right:12px;left:12px}
+  }
+  .note{margin:0;max-width:680px;font-size:12px;color:var(--muted);line-height:1.6}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand">
+      <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <circle cx="20" cy="20" r="17.2" stroke="currentColor" stroke-opacity=".35"/>
+        <circle cx="20" cy="20" r="11.4" stroke="currentColor" stroke-opacity=".22"/>
+        <path d="M20 3.2a16.8 16.8 0 0 1 15.6 10.6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        <circle cx="20" cy="20" r="4.2" fill="currentColor"/>
+      </svg>
+      <div><b>BDMV → ISO</b><small>DISC STUDIO</small></div>
+    </div>
+
+    <div>
+      <div class="rail-sec">工作区</div>
+      <nav class="nav" style="margin-top:6px">
+        <button class="nav-item" data-view="packs" aria-current="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 7h.01M7 17h.01"/></svg>
+          <span class="lbl">打包工作台</span><span class="count" id="navPacks">0</span>
+        </button>
+        <button class="nav-item" data-view="iso">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.6"/></svg>
+          <span class="lbl">ISO 库</span><span class="count" id="navIso">0</span>
+        </button>
+        <button class="nav-item" data-view="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h9M17 17h3"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="15" cy="17" r="2"/></svg>
+          <span class="lbl">自动化</span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="rail-foot">
+      <div class="user">
+        <div class="avatar">A</div>
+        <div class="u-info">
+          <div class="u-name">{{ session.get('username') or 'admin' }}</div>
+          <div class="u-meta">192.168.3.36</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="搜索片名、碟号或文件…" autocomplete="off" />
+        <kbd class="kbd">/</kbd>
+      </div>
+      <div class="spacer"></div>
+      <span class="engine" id="engineTag" title="{{ (engine_note or '')|e }}"><i class="dot"></i>{{ engine or '未检测到打包引擎' }}</span>
+      <button class="icon-btn" id="refreshBtn" title="刷新状态" aria-label="刷新状态">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" title="切换主题" aria-label="切换主题">
+        <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg>
+      </button>
+    </header>
+
+    <section class="page" id="view-packs">
+      <div class="page-head">
+        <div>
+          <h1>打包工作台</h1>
+          <p class="sub">源目录 <code>data/</code> · 产物 <code>updata/</code> · 自动识别 BDMV / 合集</p>
+        </div>
+        <div class="actions">
+          <button class="btn" data-act="rescan">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7V4h3M20 7V4h-3M4 17v3h3M20 17v3h-3"/></svg>
+            重新扫描
+          </button>
+        </div>
+      </div>
+
+      <dl class="stats">
+        <div class="stat"><dt>待打包</dt><dd id="s-idle">0 <em>张碟</em></dd></div>
+        <div class="stat"><dt>进行中</dt><dd id="s-run">0 <em>个任务</em></dd></div>
+        <div class="stat"><dt>已完成</dt><dd id="s-done">0 <em>张碟</em></dd></div>
+        <div class="stat"><dt>ISO 镜像</dt><dd id="s-size">0 <em>个</em></dd></div>
+      </dl>
+
+      <div class="toolbar">
+        <div class="seg" role="group" aria-label="筛选">
+          <button data-filter="all" aria-pressed="true">全部 <b id="f-all">0</b></button>
+          <button data-filter="running" aria-pressed="false">进行中 <b id="f-run">0</b></button>
+          <button data-filter="done" aria-pressed="false">已完成 <b id="f-done">0</b></button>
+          <button data-filter="idle" aria-pressed="false">待打包 <b id="f-idle">0</b></button>
+        </div>
+      </div>
+
+      <div class="grid" id="packGrid"></div>
+      <p class="foot-note">进度每秒自动刷新 · 停止会删除半成品 · 输出已存在时不会覆盖</p>
+    </section>
+
+    <section class="page" id="view-iso" hidden>
+      <div class="page-head">
+        <div>
+          <h1>ISO 库</h1>
+          <p class="sub"><code>iso/</code> 与 <code>updata/</code> 下的全部镜像 · ed2k 结果缓存于 <code>config/*.json</code></p>
+        </div>
+        <div class="actions">
+          <button class="btn" data-act="hashall">批量计算 ed2k</button>
+        </div>
+      </div>
+
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr><th style="width:40%">文件</th><th style="width:11%">大小</th><th class="c-ed2k" style="width:32%">ed2k 链接</th><th style="width:17%"></th></tr>
+          </thead>
+          <tbody id="isoBody"></tbody>
+        </table>
+      </div>
+      <p class="foot-note">重命名不会重算哈希，只改写链接内的文件名 · size + mtime 变化才失效</p>
+    </section>
+
+    <section class="page" id="view-settings" hidden>
+      <div class="page-head">
+        <div>
+          <h1>自动化</h1>
+          <p class="sub">qBittorrent 下载完成后自动打包 / 自动生成 ed2k</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>qBittorrent 联动</h2>
+        <p class="panel-sub">在 qB 的「下载完成时运行外部程序」里调用下面的地址</p>
+        <div class="row">
+          <div class="grow"><h3>启用 Webhook</h3><p>关闭后 <code>/webhook/qb</code> 直接拒绝外部请求</p></div>
+          <button class="switch" role="switch" aria-checked="{{ 'true' if qb_webhook_enabled else 'false' }}" data-act="toggle" data-key="webhook" aria-label="启用 Webhook"><i></i></button>
+        </div>
+        <div class="row">
+          <div class="grow"><h3>完成后自动打包 ISO</h3><p>按种子名匹配 <code>data/</code> 下的 BDMV 目录并排队</p></div>
+          <button class="switch" role="switch" aria-checked="{{ 'true' if qb_auto_convert_iso else 'false' }}" data-act="toggle" data-key="autoConvert" aria-label="自动打包"><i></i></button>
+        </div>
+        <div class="row">
+          <div class="grow"><h3>打包后自动生成 ed2k</h3><p>产出 ISO 后异步计算分块哈希，结果写入缓存</p></div>
+          <button class="switch" role="switch" aria-checked="{{ 'true' if qb_auto_ed2k else 'false' }}" data-act="toggle" data-key="autoEd2k" aria-label="自动 ed2k"><i></i></button>
+        </div>
+        <div class="row" style="display:block">
+          <h3>Webhook 地址</h3>
+          <div class="code">
+            <span id="hookUrl"></span>
+            <button data-act="copy" id="hookCopy">复制</button>
+          </div>
+          <p style="margin:8px 0 0;font-size:11.5px;color:var(--muted)">令牌可用环境变量 <code>QB_WEBHOOK_SECRET</code> 覆盖，默认 <code>aiying</code></p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>账号</h2>
+        <p class="panel-sub">登录 session + 密码哈希，改密后立即生效</p>
+        <div class="row" style="display:block">
+          <p style="margin:0 0 12px;font-size:12px;color:var(--muted)">当前账号 <b style="color:var(--text)">{{ session.get('username') or 'admin' }}</b> · 改密在独立的账号页完成，保存后立即生效。</p>
+          <div class="actions">
+            <a class="btn primary" href="/account" style="text-decoration:none">前往修改密码</a>
+            <button class="btn ghost" data-act="logout">退出登录</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>打包引擎</h2>
+        <div class="row">
+          <div class="grow"><h3>{{ engine or '未检测到可用引擎' }} <span class="chip {{ 'done' if engine else 'err' }}" style="height:19px;font-size:10.5px;margin-left:6px">{{ '已就绪' if engine else '缺失' }}</span></h3><p>{{ engine_note or '容器内自动探测：genisoimage → xorriso → pycdlib' }}</p></div>
+        </div>
+        <div class="row">
+          <div class="grow"><h3>兜底链</h3><p>xorriso → hdiutil（macOS）→ pycdlib（纯 Python，UDF 2.60）</p></div>
+        </div>
+        <div class="row">
+          <div class="grow"><h3>输出命名</h3><p>单碟 <code>updata/&lt;名称&gt;.iso</code> · 合集 <code>updata/&lt;合集&gt;/&lt;碟号&gt;.iso</code></p></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+
+<div class="mask" id="mask" hidden>
+  <form class="modal" id="renameForm">
+    <h3>重命名镜像</h3>
+    <p>ed2k 链接中的文件名会同步改写，哈希保持不变。</p>
+    <div class="field"><label for="renameInput">文件名</label><input id="renameInput" autocomplete="off" /></div>
+    <div class="modal-foot">
+      <button type="button" class="btn ghost" data-act="closeModal">取消</button>
+      <button type="submit" class="btn primary">保存</button>
+    </div>
+  </form>
+</div>
+<script id="boot" type="application/json">
+{
+  "engine": {{ engine|tojson }},
+  "engineNote": {{ (engine_note or '')|tojson }},
+  "flags": {
+    "webhook": {{ 'true' if qb_webhook_enabled else 'false' }},
+    "autoConvert": {{ 'true' if qb_auto_convert_iso else 'false' }},
+    "autoEd2k": {{ 'true' if qb_auto_ed2k else 'false' }}
+  },
+  "items": [
+  {%- for it in items %}
+  {"name": {{ it.name|tojson }}, "kind": {{ it.kind|tojson }},
+   "outExists": {{ 'true' if it.out_exists else 'false' }},
+   "outBytes": {% if it.out_iso_bytes is not none %}{{ it.out_iso_bytes }}{% else %}null{% endif %},
+   "outRel": {{ (it.out_iso_rel or '')|tojson }},
+   "ed2k": {{ (it.ed2k or '')|tojson }},
+   "job": {% if it.job %}{"status": {{ it.job.status|tojson }}, "progress": {{ it.job.progress or 0 }}, "written": {{ it.job.written_bytes or 0 }}, "total": {{ it.job.total_bytes or 0 }}, "detail": {{ (it.job.detail or '')|tojson }}, "lastOutput": {{ (it.job.last_output or '')|tojson }}}{% else %}null{% endif %},
+   "discs": [{% for d in it.discs %}{"name": {{ d.disc|tojson }}, "outExists": {{ 'true' if d.out_exists else 'false' }}, "outBytes": {% if d.out_iso_bytes is not none %}{{ d.out_iso_bytes }}{% else %}null{% endif %}, "outRel": {{ (d.out_iso_rel or '')|tojson }}, "ed2k": {{ (d.ed2k or '')|tojson }}, "job": {% if d.job %}{"status": {{ d.job.status|tojson }}, "progress": {{ d.job.progress or 0 }}, "written": {{ d.job.written_bytes or 0 }}, "total": {{ d.job.total_bytes or 0 }}, "detail": {{ (d.job.detail or '')|tojson }}, "lastOutput": {{ (d.job.last_output or '')|tojson }}}{% else %}null{% endif %}}{% if not loop.last %},{% endif %}{% endfor %}]
+  }{% if not loop.last %},{% endif %}
+  {%- endfor %}
+  ],
+  "isos": [
+  {%- for x in iso_items %}
+  {"file": {{ x.file|tojson }}, "size": {% if x.size is not none %}{{ x.size }}{% else %}0{% endif %}, "ed2k": {{ (x.ed2k or '')|tojson }}}{% if not loop.last %},{% endif %}
+  {%- endfor %}
+  ]
+}
+</script>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtGB = b => { if (!b) return '—'; const g = b / 1024 ** 3; return g.toFixed(g >= 100 ? 0 : 1) + ' GB'; };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+let BOOT = { items: [], isos: [], engine: '', engineNote: '', flags: {} };
+try { BOOT = JSON.parse(document.getElementById('boot').textContent); }
+catch (e) { console.error('boot 数据解析失败', e); }
+
+let uid = 0;
+const ALL = new Map();
+const state = { view: 'packs', filter: 'all', q: '', packs: [], isos: [] };
+
+function normJob(j) {
+  if (!j) return null;
+  return {
+    status: j.status || 'idle',
+    progress: Number(j.progress || 0),
+    written: Number(j.written || 0),
+    total: Number(j.total || 0),
+    detail: j.detail || '',
+    lastOutput: j.lastOutput || ''
+  };
+}
+
+function statusOf(o) {
+  const j = normJob(o.job);
+  if (j) {
+    if (j.status === 'running' || j.status === 'pending') return 'running';
+    if (j.status === 'error') return 'error';
+    if (j.status === 'done') return 'done';
+  }
+  return o.outExists ? 'done' : 'idle';
+}
+
+function addUnit(pack, o, disc) {
+  const j = normJob(o.job);
+  const outRel = o.outRel || '';
+  const u = {
+    id: 'u' + (++uid),
+    disc: disc,
+    label: disc,
+    jobKey: disc ? pack.name + '::' + disc : pack.name,
+    status: statusOf(o),
+    progress: j ? j.progress : 0,
+    written: j ? j.written : 0,
+    total: j ? j.total : 0,
+    detail: j ? j.detail : '',
+    lastOutput: j ? j.lastOutput : '',
+    outExists: !!o.outExists,
+    outBytes: Number(o.outBytes || 0),
+    outRel: outRel,
+    file: outRel.split('/').pop() || '',
+    ed2k: o.ed2k || '',
+    busy: false
+  };
+  if (!u.total && u.outBytes) u.total = u.outBytes;
+  pack.units.push(u);
+  ALL.set(u.id, { pack: pack, u: u });
+  return u;
+}
+
+(BOOT.items || []).forEach(it => {
+  const pack = { name: it.name, kind: it.kind, units: [] };
+  state.packs.push(pack);
+  if (it.kind === 'box') (it.discs || []).forEach(d => addUnit(pack, d, d.name));
+  else if (it.kind === 'disc') addUnit(pack, it, null);
+});
+state.isos = (BOOT.isos || []).map(x => ({ file: x.file, size: Number(x.size || 0), ed2k: x.ed2k || '', busy: false }));
+
+const units = () => state.packs.flatMap(p => p.units);
+const matches = p => !state.q || p.name.toLowerCase().includes(state.q.toLowerCase()) ||
+  p.units.some(u => (u.label || '').toLowerCase().includes(state.q.toLowerCase()));
+
+function chipOf(u) {
+  if (u.status === 'hashing' || u.busy) return '<span class="chip run"><i class="dot"></i>算 ed2k</span>';
+  if (u.status === 'running') return '<span class="chip run"><i class="dot"></i>打包中</span>';
+  if (u.status === 'done') return '<span class="chip done">已完成</span>';
+  if (u.status === 'error') return '<span class="chip err">需处理</span>';
+  return '<span class="chip idle">待打包</span>';
+}
+
+function progressText(u) {
+  if (u.status === 'hashing' || u.busy) return '分块校验 <b>' + Math.round(u.progress * 100) + '%</b> · 9500 KB / block';
+  if (u.status === 'running') {
+    let s = '<b>' + (u.progress * 100).toFixed(1) + '%</b>';
+    if (u.total) s += ' · ' + fmtGB(u.total * u.progress) + ' / ' + fmtGB(u.total);
+    if (u.detail) s += ' · ' + esc(u.detail);
+    return s;
+  }
+  if (u.status === 'done') return '已生成 ' + esc(u.file || 'ISO') + (u.outBytes ? ' · ' + fmtGB(u.outBytes) : '');
+  if (u.status === 'error') return esc(u.detail || u.lastOutput || '上次任务失败，输出可能已存在');
+  return u.outExists ? '磁盘上已有输出' : '源目录已就绪 · 等待打包';
+}
+
+function progressBlock(u) {
+  const active = u.status === 'running' || u.status === 'hashing' || u.busy;
+  const cls = u.status === 'done' ? 'done' : (active ? 'run' : '');
+  const w = (u.status === 'done' ? 100 : u.progress * 100).toFixed(2);
+  return '<div class="prog">' +
+    '<div class="prog-top"><span data-pt="' + u.id + '">' + progressText(u) + '</span></div>' +
+    '<div class="bar ' + cls + '"><i data-pb="' + u.id + '" style="width:' + w + '%"></i></div>' +
+    '</div>';
+}
+
+function actionsOf(p, u, compact) {
+  const sz = compact ? ' sm' : '';
+  const id = u.id;
+  if (u.busy) return '<button class="btn' + sz + '" disabled>计算中…</button>';
+  if (u.status === 'running') return '<button class="btn danger' + sz + '" data-act="stop" data-id="' + id + '">停止</button>';
+  if (u.status === 'done') {
+    return (u.ed2k
+      ? '<button class="btn' + sz + '" data-act="copy" data-copy="' + esc(u.ed2k) + '">复制 ed2k</button>'
+      : '<button class="btn' + sz + '" data-act="hash" data-id="' + id + '">算 ed2k</button>') +
+      '<button class="btn' + sz + '" data-act="rename" data-id="' + id + '">改名</button>' +
+      '<button class="btn' + sz + '" data-act="clear" data-id="' + id + '">清除</button>';
+  }
+  if (u.status === 'error') {
+    return (u.outExists ? '' : '<button class="btn primary' + sz + '" data-act="start" data-id="' + id + '">重试</button>') +
+      '<button class="btn' + sz + '" data-act="clear" data-id="' + id + '">清除</button>';
+  }
+  return '<button class="btn primary' + sz + '" data-act="start" data-id="' + id + '">开始打包</button>' +
+    '<button class="btn' + sz + '" data-act="clear" data-id="' + id + '">清除</button>';
+}
+
+function ed2kRow(u) {
+  if (!u.ed2k) return '';
+  return '<div class="link"><span>' + esc(u.ed2k) + '</span>' +
+    '<button data-act="copy" data-copy="' + esc(u.ed2k) + '">复制</button></div>';
+}
+
+function discIcon() {
+  return '<svg class="thumb" viewBox="0 0 40 40" fill="none" aria-hidden="true">' +
+    '<circle cx="20" cy="20" r="18" stroke="currentColor" stroke-opacity=".3"/>' +
+    '<circle cx="20" cy="20" r="12" stroke="currentColor" stroke-opacity=".16"/>' +
+    '<path d="M20 2a18 18 0 0 1 15.6 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+    '<circle cx="20" cy="20" r="4.2" fill="currentColor"/></svg>';
+}
+function boxIcon() {
+  return '<svg class="thumb" viewBox="0 0 40 40" fill="none" aria-hidden="true">' +
+    '<rect x="5" y="14" width="24" height="19" rx="3" stroke="currentColor" stroke-opacity=".3"/>' +
+    '<rect x="10" y="9" width="24" height="19" rx="3" fill="var(--surface)" stroke="currentColor" stroke-opacity=".55"/>' +
+    '<circle cx="22" cy="18.5" r="3.4" fill="currentColor" fill-opacity=".85"/></svg>';
+}
+
+function packCard(p) {
+  if (p.kind === 'unknown') {
+    return '<article class="card">' +
+      '<div class="card-head">' + discIcon() +
+        '<div class="grow"><div class="ttl">' + esc(p.name) + '</div><div class="meta">data/' + esc(p.name) + '</div></div>' +
+        '<span class="chip err">未识别</span>' +
+      '</div>' +
+      '<p class="note">未找到 <code>BDMV/index.bdmv</code>，这不是有效的蓝光目录。请检查解压是否完整，或确认该目录只是普通文件夹。</p>' +
+      '<div class="actions"><button class="btn sm" data-act="rescan">重新识别</button>' +
+        '<button class="btn ghost sm" data-act="copy" data-copy="data/' + esc(p.name) + '">复制路径</button></div>' +
+    '</article>';
+  }
+
+  if (p.kind === 'box') {
+    const done = p.units.filter(u => u.status === 'done').length;
+    const running = p.units.some(u => u.status === 'running');
+    const rows = p.units.map(u =>
+      '<div class="unit">' +
+        '<div class="u-main"><div class="u-name">' + esc(u.label || '') + '</div>' +
+          (u.status === 'running' || u.busy
+            ? '<div class="bar mini run"><i data-pb="' + u.id + '" style="width:' + (u.progress * 100).toFixed(2) + '%"></i></div>' +
+              '<div class="meta"><span data-pct="' + u.id + '">' + Math.round(u.progress * 100) + '%</span></div>'
+            : '<div class="meta">' + (u.outBytes ? fmtGB(u.outBytes) : '源目录 · 未扫描') + '</div>') +
+        '</div>' +
+        '<div>' + chipOf(u) + '</div>' +
+        '<div class="u-right">' + actionsOf(p, u, true) + '</div>' +
+      '</div>').join('');
+
+    return '<article class="card">' +
+      '<div class="card-head">' + boxIcon() +
+        '<div class="grow"><div class="ttl">' + esc(p.name) + '</div>' +
+          '<div class="meta">合集 · ' + p.units.length + ' 张碟 · data/' + esc(p.name) + '</div></div>' +
+        '<div class="head-right">' +
+          (done === p.units.length || running ? '' : '<button class="btn sm" data-act="startall" data-pack="' + esc(p.name) + '" data-rest="' + (p.units.length - done) + '">剩余全部打包</button>') +
+          '<span class="chip ' + (done === p.units.length ? 'done' : 'idle') + '">' + done + '/' + p.units.length + ' 已完成</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="units">' + rows + '</div>' +
+    '</article>';
+  }
+
+  const u = p.units[0];
+  return '<article class="card disc-row">' +
+    '<div class="card-head">' + discIcon() +
+      '<div class="grow"><div class="ttl">' + esc(p.name) + '</div>' +
+        '<div class="meta">data/' + esc(p.name) + '</div></div>' +
+      '<div class="head-right">' + chipOf(u) +
+        '<div class="actions">' + actionsOf(p, u, true) + '</div>' +
+      '</div>' +
+    '</div>' +
+    progressBlock(u) + ed2kRow(u) +
+  '</article>';
+}
+
+function renderStats() {
+  const all = units();
+  const idle = all.filter(u => u.status === 'idle' || u.status === 'error').length;
+  const running = all.filter(u => u.status === 'running').length;
+  const done = all.filter(u => u.status === 'done').length;
+  $('#s-idle').innerHTML = idle + ' <em>张碟</em>';
+  $('#s-run').innerHTML = running + ' <em>个任务</em>';
+  $('#s-done').innerHTML = done + ' <em>张碟</em>';
+  $('#s-size').innerHTML = state.isos.length + ' <em>个</em>';
+  $('#f-all').textContent = all.length;
+  $('#f-run').textContent = running;
+  $('#f-done').textContent = done;
+  $('#f-idle').textContent = idle;
+  $('#navPacks').textContent = state.packs.length;
+  $('#navIso').textContent = state.isos.length;
+}
+
+function renderPacks() {
+  const list = state.packs.filter(p => {
+    if (!matches(p)) return false;
+    if (state.filter === 'all') return true;
+    const st = p.units.map(u => u.status);
+    if (state.filter === 'running') return st.some(s => s === 'running');
+    if (state.filter === 'done') return st.length && st.every(s => s === 'done');
+    return st.some(s => s === 'idle' || s === 'error');
+  });
+  $('#packGrid').innerHTML = list.length
+    ? list.map(packCard).join('')
+    : '<div class="empty" style="grid-column:1/-1">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>' +
+        '<div>' + (state.q ? '没有匹配的条目，换个关键词试试' : 'data/ 目录下还没有可打包的资源') + '</div></div>';
+  renderStats();
+}
+
+function renderIso() {
+  const rows = state.isos.filter(i => !state.q || i.file.toLowerCase().includes(state.q.toLowerCase()));
+  $('#isoBody').innerHTML = rows.length ? rows.map(i =>
+    '<tr>' +
+      '<td><div class="fname">' + esc(i.file) + '</div></td>' +
+      '<td><div class="fsize">' + fmtGB(i.size) + '</div></td>' +
+      '<td class="c-ed2k">' + (i.ed2k
+        ? '<div class="link" style="background:transparent;border:0;padding:0"><span style="font-size:10.5px">' + esc(i.ed2k.split('|')[4] || '') + '…</span></div>'
+        : (i.busy ? '<span class="chip run"><i class="dot"></i>计算中</span>' : '<span class="chip idle">未生成</span>')) + '</td>' +
+      '<td><div class="row-actions">' +
+        (i.busy ? '<button class="btn sm" disabled>计算中…</button>'
+          : (i.ed2k
+            ? '<button class="btn sm" data-act="copy" data-copy="' + esc(i.ed2k) + '">复制</button>'
+            : '<button class="btn sm" data-act="hashiso" data-file="' + esc(i.file) + '">算 ed2k</button>')) +
+        '<button class="btn sm" data-act="renamesio" data-file="' + esc(i.file) + '">改名</button>' +
+      '</div></td>' +
+    '</tr>').join('')
+    : '<tr><td colspan="4"><div class="empty" style="border:0">暂无镜像文件</div></td></tr>';
+  renderStats();
+}
+
+function render() { renderPacks(); renderIso(); }
+
+function paintProgress() {
+  units().forEach(u => {
+    const pb = document.querySelector('[data-pb="' + u.id + '"]');
+    const pt = document.querySelector('[data-pt="' + u.id + '"]');
+    if (pb) pb.style.width = (u.status === 'done' ? 100 : u.progress * 100).toFixed(2) + '%';
+    if (pt) pt.innerHTML = progressText(u);
+    const pc = document.querySelector('[data-pct="' + u.id + '"]');
+    if (pc) pc.textContent = Math.round((u.status === 'done' ? 1 : u.progress) * 100) + '%';
+  });
+}
+
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 260); }, 2600);
+}
+
+async function copyText(t) {
+  if (!t) return;
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = t; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (_) {}
+    ta.remove();
+  }
+  toast('已复制到剪贴板');
+}
+
+async function postForm(url, fields) {
+  const fd = new FormData();
+  Object.keys(fields).forEach(k => { const v = fields[k]; if (v !== null && v !== undefined && v !== '') fd.append(k, v); });
+  const res = await fetch(url, { method: 'POST', body: fd, credentials: 'same-origin' });
+  if (!res.ok && res.status !== 0) throw new Error('HTTP ' + res.status);
+  return res;
+}
+
+async function postJSON(url, body) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    credentials: 'same-origin'
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data || data.ok !== true) throw new Error((data && data.error) || ('HTTP ' + res.status));
+  return data;
+}
+
+async function pollWhileRunning(firstUrl, pollUrl, qs, onProgress) {
+  const first = await fetch(firstUrl + '?' + qs, { cache: 'no-store' });
+  if (first.status === 404) throw new Error('ISO 文件不存在');
+  if (!first.ok) throw new Error('HTTP ' + first.status);
+  let snap = await first.json();
+  let guard = 0;
+  while ((snap.status === 'running' || snap.status === 'pending') && guard++ < 4000) {
+    if (onProgress) onProgress(Number(snap.progress || 0));
+    await sleep(700);
+    const r = await fetch(pollUrl + '?' + qs, { cache: 'no-store' });
+    if (!r.ok) throw new Error('状态查询失败');
+    snap = await r.json();
+  }
+  if (snap.status === 'error') throw new Error(snap.error || '计算失败');
+  if (!snap.ed2k) throw new Error('未返回哈希');
+  return String(snap.ed2k);
+}
+
+function ed2kForPack(name, disc, onProgress) {
+  const qs = new URLSearchParams({ name: name });
+  if (disc) qs.set('disc', disc);
+  return pollWhileRunning('/api/ed2k', '/api/ed2k_status', qs, onProgress);
+}
+
+function ed2kForIso(file, onProgress) {
+  const qs = new URLSearchParams({ file: file });
+  return pollWhileRunning('/api/iso_ed2k', '/api/iso_ed2k_status', qs, onProgress);
+}
+
+async function saveSettings() {
+  const on = k => { const el = document.querySelector('[data-act="toggle"][data-key="' + k + '"]'); return !!(el && el.getAttribute('aria-checked') === 'true'); };
+  const body = { qb_webhook_enabled: on('webhook'), qb_auto_convert_iso: on('autoConvert'), qb_auto_ed2k: on('autoEd2k') };
+  try { await postJSON('/api/settings', body); toast('设置已保存'); }
+  catch (err) { toast('保存失败：' + err.message); }
+}
+
+async function poll() {
+  let jobs = {};
+  try {
+    const res = await fetch('/api/status', { cache: 'no-store' });
+    if (!res.ok) return;
+    jobs = (await res.json()).jobs || {};
+  } catch (_) { return; }
+
+  let changed = false;
+  units().forEach(u => {
+    if (u.busy) return;
+    const j = jobs[u.jobKey];
+    if (j) {
+      const next = (j.status === 'running' || j.status === 'pending') ? 'running' : j.status;
+      const mapped = (next === 'cancelled' || next === 'idle') ? (j.out_iso_exists ? 'done' : 'idle') : next;
+      if (mapped !== u.status) changed = true;
+      u.status = mapped;
+      u.progress = Number(j.progress || 0);
+      u.written = Number(j.written_bytes || 0);
+      u.total = Number(j.total_bytes || 0) || u.total;
+      u.detail = j.detail || '';
+      u.lastOutput = j.last_output || '';
+      if (typeof j.out_iso_exists === 'boolean') u.outExists = j.out_iso_exists;
+      if (j.out_iso_bytes_disk) u.outBytes = Number(j.out_iso_bytes_disk);
+    } else if (u.status === 'running') {
+      u.status = u.outExists ? 'done' : 'idle';
+      u.progress = u.outExists ? 1 : 0;
+      if (u.status === 'done' && !u.total && u.outBytes) u.total = u.outBytes;
+      changed = true;
+    }
+  });
+
+  if (changed) render(); else paintProgress();
+}
+
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const act = b.dataset.act;
+
+  if (act === 'copy') { copyText(b.dataset.copy || ''); return; }
+
+  if (act === 'start' || act === 'stop' || act === 'clear') {
+    const rec = ALL.get(b.dataset.id);
+    if (!rec) return;
+    const u = rec.u;
+    b.disabled = true;
+    try {
+      if (act === 'start') {
+        await postForm('/convert', { name: rec.pack.name, disc: u.disc });
+        u.status = 'running'; u.progress = 0;
+        toast('已开始打包 · ' + (u.disc || rec.pack.name));
+      } else if (act === 'stop') {
+        await postForm('/stop', { name: rec.pack.name, disc: u.disc });
+        u.progress = 0; u.status = u.outExists ? 'done' : 'idle';
+        toast('已停止并删除半成品');
+      } else {
+        await postForm('/clear_job', { name: rec.pack.name, disc: u.disc });
+        u.progress = 0; u.status = u.outExists ? 'done' : 'idle';
+        toast('已清除任务记录');
+      }
+      render();
+      setTimeout(poll, 500);
+    } catch (err) {
+      toast('操作失败：' + err.message);
+    } finally { b.disabled = false; }
+    return;
+  }
+
+  if (act === 'startall') {
+    const p = state.packs.find(x => x.name === b.dataset.pack);
+    if (!p) return;
+    b.disabled = true;
+    let n = 0;
+    for (const u of p.units) {
+      if (u.status === 'done' || u.status === 'running') continue;
+      try { await postForm('/convert', { name: p.name, disc: u.disc }); u.status = 'running'; u.progress = 0; n++; }
+      catch (_) {}
+    }
+    toast('已提交 ' + n + ' 张碟');
+    render();
+    setTimeout(poll, 600);
+    return;
+  }
+
+  if (act === 'hash') {
+    const rec = ALL.get(b.dataset.id);
+    if (!rec) return;
+    const u = rec.u;
+    u.busy = true; u.progress = 0;
+    render();
+    try {
+      u.ed2k = await ed2kForPack(rec.pack.name, u.disc, p => { u.progress = p; paintProgress(); });
+      toast('ed2k 已生成 · ' + (u.disc || rec.pack.name));
+    } catch (err) { toast('ed2k 失败：' + err.message); }
+    finally { u.busy = false; render(); }
+    return;
+  }
+
+  if (act === 'hashiso') {
+    const i = state.isos.find(x => x.file === b.dataset.file);
+    if (!i) return;
+    i.busy = true; renderIso();
+    try { i.ed2k = await ed2kForIso(i.file); toast('ed2k 已生成 · ' + i.file); }
+    catch (err) { toast('ed2k 失败：' + err.message); }
+    finally { i.busy = false; renderIso(); }
+    return;
+  }
+
+  if (act === 'hashall') {
+    const todo = state.isos.filter(i => !i.ed2k && !i.busy);
+    if (!todo.length) { toast('没有需要计算的镜像'); return; }
+    b.disabled = true; b.textContent = '计算中…';
+    let ok = 0;
+    for (const i of todo) {
+      i.busy = true; renderIso();
+      try { i.ed2k = await ed2kForIso(i.file); ok++; } catch (_) {}
+      i.busy = false; renderIso();
+    }
+    b.disabled = false; b.textContent = '批量计算 ed2k';
+    toast('完成 ' + ok + '/' + todo.length);
+    return;
+  }
+
+  if (act === 'rename' || act === 'renamesio') {
+    const inp = $('#renameInput');
+    if (act === 'rename') {
+      const rec = ALL.get(b.dataset.id);
+      if (!rec) return;
+      inp.value = rec.u.file || (rec.pack.name + '.iso');
+      inp.dataset.mode = 'pack';
+      inp.dataset.id = rec.u.id;
+      delete inp.dataset.file;
+    } else {
+      const i = state.isos.find(x => x.file === b.dataset.file);
+      if (!i) return;
+      inp.value = i.file.split('/').pop();
+      inp.dataset.mode = 'iso';
+      inp.dataset.file = i.file;
+      delete inp.dataset.id;
+    }
+    $('#mask').hidden = false;
+    inp.focus(); inp.select();
+    return;
+  }
+
+  if (act === 'closeModal') { $('#mask').hidden = true; return; }
+
+  if (act === 'toggle') {
+    const on = b.getAttribute('aria-checked') === 'true';
+    b.setAttribute('aria-checked', String(!on));
+    saveSettings();
+    return;
+  }
+
+  if (act === 'rescan') { location.reload(); return; }
+  if (act === 'logout') {
+    try { await postForm('/logout', {}); } catch (_) {}
+    location.href = '/login';
+    return;
+  }
+});
+
+$('#renameForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const inp = $('#renameInput');
+  let name = (inp.value || '').trim();
+  if (!name) return;
+  if (!/\.iso$/i.test(name)) name += '.iso';
+  const btn = $('#renameForm button[type="submit"]');
+  btn.disabled = true;
+  try {
+    if (inp.dataset.mode === 'iso') {
+      await postJSON('/api/iso_rename', { file: inp.dataset.file, new_name: name });
+    } else {
+      const rec = ALL.get(inp.dataset.id);
+      if (!rec) return;
+      await postJSON('/api/rename_iso', { name: rec.pack.name, disc: rec.u.disc || null, new_name: name });
+    }
+    $('#mask').hidden = true;
+    toast('已重命名，正在刷新…');
+    setTimeout(() => location.reload(), 500);
+  } catch (err) {
+    toast('改名失败：' + err.message);
+  } finally { btn.disabled = false; }
+});
+
+$('#mask').addEventListener('click', e => { if (e.target.id === 'mask') $('#mask').hidden = true; });
+
+Array.from(document.querySelectorAll('.nav-item')).forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.nav-item').forEach(x => x.setAttribute('aria-current', 'false'));
+  btn.setAttribute('aria-current', 'true');
+  state.view = btn.dataset.view;
+  ['packs', 'iso', 'settings'].forEach(v => { $('#view-' + v).hidden = v !== state.view; });
+  window.scrollTo({ top: 0 });
+}));
+
+Array.from(document.querySelectorAll('.seg button')).forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', 'false'));
+  btn.setAttribute('aria-pressed', 'true');
+  state.filter = btn.dataset.filter;
+  renderPacks();
+}));
+
+$('#q').addEventListener('input', e => {
+  state.q = e.target.value.trim();
+  renderPacks(); renderIso();
+});
+
+$('#refreshBtn').addEventListener('click', () => { poll(); toast('状态已刷新'); });
+
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement !== $('#q')) { e.preventDefault(); $('#q').focus(); }
+  if (e.key === 'Escape') { $('#mask').hidden = true; $('#q').blur(); }
+});
+
+(function initTheme() {
+  const themeBtn = $('#themeBtn');
+  const params = new URLSearchParams(location.search);
+  const qsTheme = params.get('theme');
+  if (qsTheme === 'light' || qsTheme === 'dark') document.documentElement.dataset.theme = qsTheme;
+  const saved = localStorage.getItem('iso-theme');
+  if (saved && !qsTheme) document.documentElement.dataset.theme = saved;
+  themeBtn.addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('iso-theme', next);
+  });
+})();
+
+(function initHookUrl() {
+  const url = location.origin + '/webhook/qb?token=aiying';
+  const span = $('#hookUrl');
+  if (span) span.textContent = url;
+  const btn = $('#hookCopy');
+  if (btn) btn.dataset.copy = url;
+})();
+
+render();
+poll();
+setInterval(poll, 1000);
+
+(function initView() {
+  const v = new URLSearchParams(location.search).get('view');
+  if (!v || ['packs', 'iso', 'settings'].indexOf(v) < 0) return;
+  const b = document.querySelector('.nav-item[data-view="' + v + '"]');
+  if (b) b.click();
+})();
+</script>
+</body>
+</html>
