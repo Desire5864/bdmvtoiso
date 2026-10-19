@@ -22,6 +22,8 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY src/ /app/
 COPY templates/ /app/templates/
+# 站点图标（favicon.svg / .ico / apple-touch-icon），Flask 由 /static 提供
+COPY static/ /app/static/
 
 # 运行时目录（实际使用建议挂载到宿主机）
 RUN mkdir -p /app/data /app/updata /app/iso /app/config
