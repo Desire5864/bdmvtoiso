@@ -1504,8 +1504,11 @@ def webhook_qb_last():
         return jsonify({"ok": False, "error": str(e), "last": None}), 500
 
 
-@app.get("/")
-def index():
+def _scan_data_items() -> list[dict]:
+    """扫描 data/ 目录并构造资源条目。
+
+    首页渲染与 /api/resources 共用同一份扫描口径，避免两边看到的内容不一致。
+    """
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     ISO_DIR.mkdir(parents=True, exist_ok=True)
@@ -1513,7 +1516,6 @@ def index():
     _prune_ed2k_db_missing_files()
     _prune_iso_ed2k_db_missing_files()
 
-    engine, engine_note = _pick_local_engine()
     items: list[dict] = []
     for p in sorted([x for x in DATA_DIR.iterdir() if x.is_dir()], key=lambda x: x.name.lower()):
         name = p.name
@@ -1610,6 +1612,14 @@ def index():
                 }
             )
 
+    return items
+
+
+@app.get("/")
+def index():
+    items = _scan_data_items()
+    engine, engine_note = _pick_local_engine()
+
     cfg = _get_config()
     iso_items: list[dict] = []
     try:
@@ -1634,6 +1644,42 @@ def index():
         qb_webhook_enabled=_cfg_bool(cfg, CFG_QB_WEBHOOK_ENABLED, False),
         qb_auto_convert_iso=_cfg_bool(cfg, CFG_QB_AUTO_CONVERT, False),
         qb_auto_ed2k=_cfg_bool(cfg, CFG_QB_AUTO_ED2K, False),
+    )
+
+
+@app.get("/api/resources")
+def api_resources():
+    """可直接打包的 BDMV 资源目录名列表。
+
+    MoviePilot 的「BDMV自动打包ISO」插件用它与下载任务名比对后自动提交打包。
+    走 JSON 接口而不是解析首页 HTML，页面改版不会再把插件带崩。
+    """
+    items = _scan_data_items()
+    resources: list[str] = []
+    detail: list[dict] = []
+    for it in items:
+        if not it.get("is_bdmv"):
+            continue
+        name = str(it.get("name") or "")
+        if not name:
+            continue
+        if name not in resources:
+            resources.append(name)
+        detail.append(
+            {
+                "name": name,
+                "kind": it.get("kind") or "",
+                "out_exists": bool(it.get("out_exists")),
+                "discs": [d.get("name") for d in (it.get("discs") or []) if d.get("name")],
+            }
+        )
+    return jsonify(
+        {
+            "ok": True,
+            "count": len(resources),
+            "resources": resources,
+            "items": detail,
+        }
     )
 
 
