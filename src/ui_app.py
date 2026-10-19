@@ -1116,7 +1116,7 @@ def _run_job(job: Job) -> None:
                 JOBS.pop(job.key, None)
 
 
-app = Flask(__name__, static_folder=None)
+app = Flask(__name__, static_folder="static", static_url_path="/static")
 app.secret_key = _get_config().get("secret_key") or secrets.token_hex(16)
 
 def _is_logged_in() -> bool:
@@ -1129,6 +1129,9 @@ def _require_login():
         return None
     if request.path.startswith("/webhook/qb"):
         return None
+    # 站点图标必须匿名可取，否则登录页之前标签页没有图标
+    if request.path.startswith("/static/") or request.path == "/favicon.ico":
+        return None
     if not _is_logged_in():
         return redirect(url_for("login", next=request.path))
     return None
@@ -1137,6 +1140,12 @@ def _require_login():
 @app.get("/login")
 def login():
     return render_template("login.html", error=None)
+
+
+@app.get("/favicon.ico")
+def favicon_ico():
+    # 浏览器直接探测根路径时重定向到静态目录里的多尺寸 ico
+    return redirect("/static/favicon.ico")
 
 
 @app.post("/login")
