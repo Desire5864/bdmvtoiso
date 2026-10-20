@@ -4,6 +4,8 @@ name: Build and push image
 #   - push main           → latest + sha-<短哈希>（日常迭代，NAS 直接 pull latest）
 #   - push v* 标签         → vX.Y.Z + latest + sha（精确版本，回滚用）
 #   - 手动触发            → 只出 latest + sha，用来验证未打标签的改动
+#
+# 双推：ghcr.io 为主链路，Docker Hub 为备用副本（同一轮构建，产物一致）。
 on:
   push:
     branches: [main]
@@ -37,11 +39,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # 备用副本。Docker Hub 的 Docker ID 不能改名（现为 zhangsan51455），
+      # 所以路径与 ghcr 的 desire5864 不一致，这属正常。
+      # 🔴 依赖仓库 Secrets：DOCKERHUB_USERNAME / DOCKERHUB_TOKEN（PAT 需 Read & Write）。
+      #    这两个 Secret 缺失时本步骤会直接失败 —— 这是故意的，别改成静默跳过。
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Docker metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NAME }}
+          # 一次构建、多处推送：同一组 tag 同时打到 ghcr 与 Docker Hub
+          images: |
+            ${{ env.IMAGE_NAME }}
+            docker.io/${{ secrets.DOCKERHUB_USERNAME }}/bdmvtoiso
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag

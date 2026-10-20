@@ -93,6 +93,18 @@ cd /volume1/docker/bdmvtoiso
 要钉在某个版本上，把 compose 里的 `:latest` 换成 `:vX.Y.Z`；打 `v*` 标签会同时产出
 版本号标签、`latest` 和 `sha-<短哈希>`。
 
+### 备用镜像源（Docker Hub）
+
+每次构建会同时推到两个仓库，产物完全一致：
+
+```
+ghcr.io/desire5864/bdmvtoiso:latest            # 主链路
+docker.io/zhangsan51455/bdmvtoiso:latest       # 备用（ghcr 拉不动时替换 compose 里的 image）
+```
+
+Docker Hub 的 Docker ID 无法改名，所以两边的账号名不同，属正常。备用源需要仓库 Secrets
+`DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN`（PAT 具备 Read & Write 即可）。
+
 ## 本地构建
 
 ```bash
