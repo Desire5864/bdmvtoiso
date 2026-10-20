@@ -63,6 +63,30 @@ exec /usr/bin/genisoimage -iso-level 3 -allow-limited-size -input-charset utf-8 
 可用环境变量 `QB_WEBHOOK_SECRET` 覆盖。三个开关（启用 webhook / 自动打包 / 自动算 ed2k）
 在面板「自动化」页维护，写入 `config/config.json`。
 
+## 接口
+
+- `GET /api/status` — 所有打包任务状态（`jobs` 字典）。
+- `GET /api/resources` — 可直接打包的 BDMV 资源目录列表，供 MoviePilot 的
+  「BDMV自动打包ISO」插件比对下载任务名后自动提交打包：
+
+```json
+{"ok": true, "count": 1,
+ "resources": ["Some.Movie.2026.UHD.Blu-ray.HEVC-BHYS@OurBits"],
+ "items": [{"name": "Some.Movie.2026...", "kind": "disc", "out_exists": false, "discs": []}]}
+```
+
+两个接口都走登录校验（`/login` 拿 session cookie 后携带）。
+
+## 群晖部署（一键）
+
+`ops/deploy-nas.sh`：自动确保 ghcr 凭据（缺失时用 MoviePilot 容器里的 PAT 重新登录）→
+`compose pull` → `compose up -d`。凭据持久化在 `/volume1/docker/.docker/config.json`，
+`/root/.docker/config.json` 是指向它的软链，所以普通 `docker pull` 也能直接用。
+
+```bash
+sudo /volume1/docker/bdmvtoiso/deploy.sh
+```
+
 ## 本地构建
 
 ```bash
