@@ -1,5 +1,9 @@
 name: Build and push image
 
+# 触发方式与 Bili23download 对齐：
+#   - push main           → latest + sha-<短哈希>（日常迭代，NAS 直接 pull latest）
+#   - push v* 标签         → vX.Y.Z + latest + sha（精确版本，回滚用）
+#   - 手动触发            → 只出 latest + sha，用来验证未打标签的改动
 on:
   push:
     branches: [main]
@@ -7,14 +11,16 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  # 🔴 镜像名必须全小写：容器仓库不允许大写字母，而 GitHub 账号是 Desire5864。
+  #    docker/metadata-action 会做小写归一，但这里仍显式写死，避免以后换 action 踩坑。
+  IMAGE_NAME: ghcr.io/desire5864/bdmvtoiso
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: read      # 取源码
+      packages: write     # 推 ghcr.io —— 用仓库内置令牌，不需要另存 secret
 
     steps:
       - name: Checkout
@@ -27,6 +33,7 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
+          # 用仓库内置令牌：随仓库生命周期，不会因为某个人的 PAT 过期而失效
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
@@ -38,14 +45,27 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=tag
-            type=sha,format=short
+            type=sha,prefix=sha-,format=short
+          labels: |
+            org.opencontainers.image.title=BDMV to ISO
+            org.opencontainers.image.description=BDMV 自动打包蓝光 ISO 面板
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
+          # 群晖是 x86_64；不铺 QEMU，单架构构建快很多
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+          # 🔴 关掉 attestation（provenance）与 sbom：默认开启会多出一个 OCI 清单，
+          #    群晖那套偏老的 docker 拉下来可能认不出该用哪个 manifest，
+          #    表现为「pull 成功但镜像列表里没有它」。这条是 Bili23download 踩过的坑。
+          provenance: false
+          sbom: false
+
           cache-from: type=gha
           cache-to: type=gha,mode=max
