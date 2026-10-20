@@ -77,15 +77,21 @@ exec /usr/bin/genisoimage -iso-level 3 -allow-limited-size -input-charset utf-8 
 
 两个接口都走登录校验（`/login` 拿 session cookie 后携带）。
 
-## 群晖部署（一键）
+## 群晖部署 / 升级
 
-`ops/deploy-nas.sh`：自动确保 ghcr 凭据（缺失时用 MoviePilot 容器里的 PAT 重新登录）→
-`compose pull` → `compose up -d`。凭据持久化在 `/volume1/docker/.docker/config.json`，
-`/root/.docker/config.json` 是指向它的软链，所以普通 `docker pull` 也能直接用。
+镜像发布在 GHCR，**公开、免登录**，NAS 上直接拉即可：
 
 ```bash
-sudo /volume1/docker/bdmvtoiso/deploy.sh
+cd /volume1/docker/bdmvtoiso
+/usr/local/bin/docker compose pull
+/usr/local/bin/docker compose up -d
 ```
+
+群晖的 compose 是独立二进制，脚本里请写绝对路径 `/usr/local/bin/docker compose`。
+`config/`（账号、会话密钥）是挂载目录，`pull` 与重建容器都不会碰它。
+
+要钉在某个版本上，把 compose 里的 `:latest` 换成 `:vX.Y.Z`；打 `v*` 标签会同时产出
+版本号标签、`latest` 和 `sha-<短哈希>`。
 
 ## 本地构建
 
