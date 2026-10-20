@@ -19,7 +19,6 @@
     --accent:#5B8CFF; --accent-2:#3DDC97; --accent-soft:rgba(91,140,255,.14);
     --ok:#3DDC97; --ok-soft:rgba(61,220,151,.13);
     --warn:#E9B055; --err:#FF7085; --err-soft:rgba(255,112,133,.13);
-    --warn-soft:rgba(233,176,85,.14); --hash:#E9B055; --hash-2:#FFD08A;
   }
   html[data-theme="light"]{
     --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#EDF0F5; --rail:#FFFFFF;
@@ -28,7 +27,6 @@
     --accent:#3B6BF5; --accent-2:#0FA97A; --accent-soft:rgba(59,107,245,.09);
     --ok:#12996A; --ok-soft:rgba(18,153,106,.10);
     --warn:#A9711A; --err:#D9455F; --err-soft:rgba(217,69,95,.10);
-    --warn-soft:rgba(233,176,85,.20); --hash:#B4761B; --hash-2:#E0A447;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -76,19 +74,19 @@
   .page{width:100%;max-width:1240px;padding:26px 26px 60px}
   .page[hidden]{display:none}
   .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
-  h1{margin:0;font-size:24px;font-weight:650;letter-spacing:-.015em}
-  .sub{margin:5px 0 0;font-size:13px;color:var(--muted)}
+  h1{margin:0;font-size:21px;font-weight:600;letter-spacing:-.015em}
+  .sub{margin:5px 0 0;font-size:12.5px;color:var(--muted)}
   .sub code{font-family:var(--mono);font-size:11.5px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
 
   .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
-  .stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
-  .stat dt{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
-  .stat dd{margin:6px 0 0;font-size:28px;font-weight:650;letter-spacing:-.025em;font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:4px}
-  .stat dd em{font-style:normal;font-size:12.5px;color:var(--muted);font-weight:400}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
+  .stat dt{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .stat dd{margin:6px 0 0;font-size:23px;font-weight:600;letter-spacing:-.025em;font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:4px}
+  .stat dd em{font-style:normal;font-size:11.5px;color:var(--muted);font-weight:400}
 
   .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
   .seg{display:inline-flex;padding:3px;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:9px}
-  .seg button{padding:7px 13px;border-radius:7px;font-size:13.5px;color:var(--muted);transition:.15s}
+  .seg button{padding:5px 11px;border-radius:6px;font-size:12.5px;color:var(--muted);transition:.15s}
   .seg button:hover{color:var(--text)}
   .seg button[aria-pressed="true"]{background:var(--surface-2);color:var(--text);font-weight:500}
   .seg button b{font-weight:500;font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:4px}
@@ -96,63 +94,55 @@
   .spacer{flex:1}
 
   .grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
-  .card{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;gap:14px;transition:border-color .18s}
+  .card{min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:13px;transition:border-color .18s}
   .card:hover{border-color:var(--line-strong)}
-  .disc-row{padding:20px 22px;gap:14px}
-  .head-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;padding-top:3px}
+  .disc-row{padding:15px 18px;gap:11px}
+  .head-right{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end;padding-top:2px}
   .card-head{display:flex;gap:11px;align-items:flex-start}
   .card-head .grow{flex:1;min-width:0}
-  .thumb{width:46px;height:46px;flex:none;color:var(--accent);opacity:.85;margin-top:1px}
-  .ttl{font-size:16.5px;font-weight:650;line-height:1.4;word-break:break-word}
-  .meta{font:12.5px/1.5 var(--mono);color:var(--muted);margin-top:3px;word-break:break-all}
+  .thumb{width:38px;height:38px;flex:none;color:var(--accent);opacity:.85;margin-top:1px}
+  .ttl{font-size:14px;font-weight:600;line-height:1.4;word-break:break-word}
+  .meta{font:11.5px/1.5 var(--mono);color:var(--muted);margin-top:3px;word-break:break-all}
 
-  .prog{display:flex;flex-direction:column;gap:8px}
-  .prog-top{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .prog{display:flex;flex-direction:column;gap:6px}
+  .prog-top{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
   .prog-top b{font-weight:500;color:var(--text);font-family:var(--mono)}
-  .bar{height:8px;border-radius:999px;background:var(--surface-2);overflow:hidden}
+  .bar{height:6px;border-radius:999px;background:var(--surface-2);overflow:hidden}
   .bar i{display:block;height:100%;border-radius:999px;background:var(--accent);transition:width .65s linear}
   .bar.run i{background:linear-gradient(90deg,var(--accent),var(--accent-2))}
   .bar.done i{background:var(--ok)}
-  .bar.hash i{background:linear-gradient(90deg,var(--hash),var(--hash-2))}
   .bar.mini{height:4px;margin-top:6px;max-width:260px}
 
-  .chip{display:inline-flex;align-items:center;gap:5px;height:27px;padding:0 11px;border-radius:999px;font-size:13px;font-weight:500;white-space:nowrap;flex:none}
+  .chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:11.5px;white-space:nowrap;flex:none}
   .chip.idle{background:var(--surface-2);color:var(--muted)}
   .chip.run{background:var(--accent-soft);color:var(--accent)}
-  .chip.hash{background:var(--warn-soft);color:var(--warn)}
   .chip.done{background:var(--ok-soft);color:var(--ok)}
   .chip.err{background:var(--err-soft);color:var(--err)}
   .chip.run .dot{animation:pulse 1.3s ease-in-out infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
 
   .actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
-  .btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 13px;border-radius:9px;font-size:13px;border:1px solid var(--line);color:var(--text);transition:.15s;white-space:nowrap}
+  .btn{display:inline-flex;align-items:center;gap:6px;height:31px;padding:0 11px;border-radius:8px;font-size:12.5px;border:1px solid var(--line);color:var(--text);transition:.15s;white-space:nowrap}
   .btn:hover{background:var(--surface-2)}
   .btn svg{width:13px;height:13px}
   .btn.primary{background:var(--accent);border-color:transparent;color:#fff}
   .btn.primary:hover{filter:brightness(1.1)}
   .btn.danger{color:var(--err)}
   .btn.danger:hover{background:var(--err-soft);border-color:transparent}
-  .btn.sm{height:34px;padding:0 13px;font-size:13px}
+  .btn.sm{height:28px;padding:0 9px;font-size:12px}
   .btn:disabled{opacity:.45;cursor:not-allowed}
   .btn.ghost{border-color:transparent;color:var(--muted)}
   .btn.ghost:hover{color:var(--text);background:var(--surface-2)}
 
-  .link{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:9px 10px 9px 12px;font:12px var(--mono);color:var(--muted)}
+  .link{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px 6px 10px;font:11px var(--mono);color:var(--muted)}
   .link span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .link button{flex:none;display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-size:12.5px;font-family:var(--sans);padding:3px 6px;border-radius:4px}
+  .link button{flex:none;display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-size:11px;font-family:var(--sans);padding:2px 4px;border-radius:4px}
   .link button:hover{background:var(--accent-soft)}
 
-  .prog-top .r{font-family:var(--mono);white-space:nowrap}
-  .ek-hash{display:flex;flex-direction:column;gap:6px;min-width:170px}
-  .ek-hash .t{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--warn);font-variant-numeric:tabular-nums}
-  .ek-hash .t b{font-weight:600}
-  .ek-hash .bar{height:6px}
-
   .units{border-top:1px solid var(--line);display:flex;flex-direction:column}
-  .unit{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:13px 0;border-bottom:1px solid var(--line)}
+  .unit{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
   .unit:last-child{border-bottom:0;padding-bottom:0}
-  .u-name{font-size:13.5px;font-weight:500}
+  .u-name{font-size:12.5px;font-weight:500}
   .u-main .meta{margin-top:1px}
   .u-right{display:flex;align-items:center;gap:10px}
 
@@ -201,7 +191,7 @@
   .modal p{margin:0 0 12px;font-size:12px;color:var(--muted)}
   .modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 
-  .foot-note{margin-top:22px;font-size:12px;color:var(--muted);font-family:var(--mono)}
+  .foot-note{margin-top:22px;font-size:11px;color:var(--muted);font-family:var(--mono)}
 
   @media (max-width:1120px){
     .app{grid-template-columns:68px 1fr}
@@ -534,7 +524,7 @@ const matches = p => !state.q || p.name.toLowerCase().includes(state.q.toLowerCa
   p.units.some(u => (u.label || '').toLowerCase().includes(state.q.toLowerCase()));
 
 function chipOf(u) {
-  if (u.status === 'hashing' || u.busy) return '<span class="chip hash"><i class="dot"></i>算 ed2k</span>';
+  if (u.status === 'hashing' || u.busy) return '<span class="chip run"><i class="dot"></i>算 ed2k</span>';
   if (u.status === 'running') return '<span class="chip run"><i class="dot"></i>打包中</span>';
   if (u.status === 'done') return '<span class="chip done">已完成</span>';
   if (u.status === 'error') return '<span class="chip err">需处理</span>';
@@ -542,10 +532,11 @@ function chipOf(u) {
 }
 
 function progressText(u) {
-  if (u.status === 'hashing' || u.busy) return '正在生成 ed2k · 分块校验 <b>' + Math.round(u.progress * 100) + '%</b>';
+  if (u.status === 'hashing' || u.busy) return '分块校验 <b>' + Math.round(u.progress * 100) + '%</b> · 9500 KB / block';
   if (u.status === 'running') {
     let s = '<b>' + (u.progress * 100).toFixed(1) + '%</b>';
     if (u.total) s += ' · ' + fmtGB(u.total * u.progress) + ' / ' + fmtGB(u.total);
+    if (u.detail) s += ' · ' + esc(u.detail);
     return s;
   }
   if (u.status === 'done') return '已生成 ' + esc(u.file || 'ISO') + (u.outBytes ? ' · ' + fmtGB(u.outBytes) : '');
@@ -553,23 +544,12 @@ function progressText(u) {
   return u.outExists ? '磁盘上已有输出' : '源目录已就绪 · 等待打包';
 }
 
-function progressRight(u) {
-  if (u.status === 'hashing' || u.busy) {
-    const sz = u.outBytes ? fmtGB(u.outBytes) + ' · ' : '';
-    return sz + '9500 KB / block';
-  }
-  if (u.status === 'running' && u.detail) return esc(u.detail);
-  return '';
-}
-
 function progressBlock(u) {
-  const hashing = u.busy || u.status === 'hashing';
-  const active = u.status === 'running' || hashing;
-  const cls = hashing ? 'hash' : (u.status === 'done' ? 'done' : (active ? 'run' : ''));
-  const w = ((u.status === 'done' && !u.busy) ? 100 : u.progress * 100).toFixed(2);
+  const active = u.status === 'running' || u.status === 'hashing' || u.busy;
+  const cls = u.status === 'done' ? 'done' : (active ? 'run' : '');
+  const w = (u.status === 'done' ? 100 : u.progress * 100).toFixed(2);
   return '<div class="prog">' +
-    '<div class="prog-top"><span data-pt="' + u.id + '">' + progressText(u) + '</span>' +
-    '<span class="r" data-pr="' + u.id + '">' + progressRight(u) + '</span></div>' +
+    '<div class="prog-top"><span data-pt="' + u.id + '">' + progressText(u) + '</span></div>' +
     '<div class="bar ' + cls + '"><i data-pb="' + u.id + '" style="width:' + w + '%"></i></div>' +
     '</div>';
 }
@@ -702,32 +682,15 @@ function renderPacks() {
   renderStats();
 }
 
-function paintIsoProgress() {
-  state.isos.forEach((i, ix) => {
-    if (!i.busy) return;
-    const pct = (i.progress || 0) * 100;
-    const pb = document.querySelector('[data-ipb="' + ix + '"]');
-    const pt = document.querySelector('[data-ipt="' + ix + '"]');
-    if (pb) pb.style.width = pct.toFixed(1) + '%';
-    if (pt) pt.textContent = Math.round(pct) + '%';
-  });
-}
-
 function renderIso() {
   const rows = state.isos.filter(i => !state.q || i.file.toLowerCase().includes(state.q.toLowerCase()));
-  $('#isoBody').innerHTML = rows.length ? rows.map(i => {
-    const ix = state.isos.indexOf(i);
-    return '<tr>' +
+  $('#isoBody').innerHTML = rows.length ? rows.map(i =>
+    '<tr>' +
       '<td><div class="fname">' + esc(i.file) + '</div></td>' +
       '<td><div class="fsize">' + fmtGB(i.size) + '</div></td>' +
       '<td class="c-ed2k">' + (i.ed2k
         ? '<div class="link" style="background:transparent;border:0;padding:0"><span style="font-size:10.5px">' + esc(i.ed2k.split('|')[4] || '') + '…</span></div>'
-        : (i.busy
-          ? '<div class="ek-hash"><div class="t"><span>正在生成 ed2k</span>'
-            + '<b data-ipt="' + ix + '">' + Math.round((i.progress || 0) * 100) + '%</b></div>'
-            + '<div class="bar hash"><i data-ipb="' + ix + '" style="width:'
-            + ((i.progress || 0) * 100).toFixed(1) + '%"></i></div></div>'
-          : '<span class="chip idle">未生成</span>')) + '</td>' +
+        : (i.busy ? '<span class="chip run"><i class="dot"></i>计算中</span>' : '<span class="chip idle">未生成</span>')) + '</td>' +
       '<td><div class="row-actions">' +
         (i.busy ? '<button class="btn sm" disabled>计算中…</button>'
           : (i.ed2k
@@ -735,8 +698,7 @@ function renderIso() {
             : '<button class="btn sm" data-act="hashiso" data-file="' + esc(i.file) + '">算 ed2k</button>')) +
         '<button class="btn sm" data-act="renamesio" data-file="' + esc(i.file) + '">改名</button>' +
       '</div></td>' +
-    '</tr>';
-  }).join('')
+    '</tr>').join('')
     : '<tr><td colspan="4"><div class="empty" style="border:0">暂无镜像文件</div></td></tr>';
   renderStats();
 }
@@ -747,10 +709,8 @@ function paintProgress() {
   units().forEach(u => {
     const pb = document.querySelector('[data-pb="' + u.id + '"]');
     const pt = document.querySelector('[data-pt="' + u.id + '"]');
-    const pr = document.querySelector('[data-pr="' + u.id + '"]');
-    if (pb) pb.style.width = ((u.status === 'done' && !u.busy) ? 100 : u.progress * 100).toFixed(2) + '%';
+    if (pb) pb.style.width = (u.status === 'done' ? 100 : u.progress * 100).toFixed(2) + '%';
     if (pt) pt.innerHTML = progressText(u);
-    if (pr) pr.innerHTML = progressRight(u);
     const pc = document.querySelector('[data-pct="' + u.id + '"]');
     if (pc) pc.textContent = Math.round((u.status === 'done' ? 1 : u.progress) * 100) + '%';
   });
@@ -934,8 +894,8 @@ document.addEventListener('click', async e => {
   if (act === 'hashiso') {
     const i = state.isos.find(x => x.file === b.dataset.file);
     if (!i) return;
-    i.busy = true; i.progress = 0; renderIso();
-    try { i.ed2k = await ed2kForIso(i.file, p => { i.progress = p; paintIsoProgress(); }); toast('ed2k 已生成 · ' + i.file); }
+    i.busy = true; renderIso();
+    try { i.ed2k = await ed2kForIso(i.file); toast('ed2k 已生成 · ' + i.file); }
     catch (err) { toast('ed2k 失败：' + err.message); }
     finally { i.busy = false; renderIso(); }
     return;
@@ -947,8 +907,8 @@ document.addEventListener('click', async e => {
     b.disabled = true; b.textContent = '计算中…';
     let ok = 0;
     for (const i of todo) {
-      i.busy = true; i.progress = 0; renderIso();
-      try { i.ed2k = await ed2kForIso(i.file, p => { i.progress = p; paintIsoProgress(); }); ok++; } catch (_) {}
+      i.busy = true; renderIso();
+      try { i.ed2k = await ed2kForIso(i.file); ok++; } catch (_) {}
       i.busy = false; renderIso();
     }
     b.disabled = false; b.textContent = '批量计算 ed2k';
