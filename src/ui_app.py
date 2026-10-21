@@ -9,6 +9,8 @@ import threading
 import time
 import logging
 import os
+import urllib.parse
+import urllib.request
 import signal
 import json
 import secrets
@@ -44,6 +46,10 @@ DEFAULT_QB_WEBHOOK_SECRET = "aiying"
 CFG_QB_WEBHOOK_ENABLED = "qb_webhook_enabled"
 CFG_QB_AUTO_CONVERT = "qb_auto_convert_iso"
 CFG_QB_AUTO_ED2K = "qb_auto_ed2k"
+CFG_QB_URL = "qb_url"
+CFG_QB_USERNAME = "qb_username"
+CFG_QB_PASSWORD = "qb_password"
+DEFAULT_QB_URL = "http://192.168.3.36:8088"
 
 ED2K_CHUNK_BYTES = 9500 * 1024
 
@@ -1195,6 +1201,91 @@ def account_post():
     return render_template("account.html", error=None, ok="密码已更新")
 
 
+
+# ---------------------------------------------------------------- qBittorrent 客户端
+def _qb_conn() -> tuple[str, str, str]:
+    """读取 qB 连接参数：配置文件优先，环境变量兜底。"""
+    cfg = _get_config()
+    url = str(cfg.get(CFG_QB_URL) or os.environ.get("QB_URL") or DEFAULT_QB_URL).strip().rstrip("/")
+    user = str(cfg.get(CFG_QB_USERNAME) or os.environ.get("QB_USERNAME") or "").strip()
+    pwd = str(cfg.get(CFG_QB_PASSWORD) or os.environ.get("QB_PASSWORD") or "")
+    return url, user, pwd
+
+
+def _qb_http(path: str, data: dict | None = None, cookie: str = "", timeout: int = 8):
+    """最小 qB Web API 调用（不引第三方库）。返回 (正文, Set-Cookie)。"""
+    url, _user, _pwd = _qb_conn()
+    body = urllib.parse.urlencode(data).encode("utf-8") if data else None
+    req = urllib.request.Request(url + path, data=body, method="POST" if data else "GET")
+    req.add_header("Referer", url)
+    req.add_header("Origin", url)
+    if body:
+        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    if cookie:
+        req.add_header("Cookie", cookie)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        return resp.read().decode("utf-8", "replace"), resp.headers.get("Set-Cookie", "") or ""
+
+
+def _qb_login() -> str:
+    url, user, pwd = _qb_conn()
+    if not user:
+        raise RuntimeError("未配置 qBittorrent 账号（自动化页填一下）")
+    text, cookie = _qb_http("/api/v2/auth/login", {"username": user, "password": pwd})
+    if text.strip() != "Ok.":
+        raise RuntimeError("qBittorrent 登录失败：账号或密码不对（或被 IP 封禁）")
+    return cookie.split(";")[0].strip()
+
+
+def _qb_torrents(cookie: str) -> list[dict]:
+    text, _ = _qb_http("/api/v2/torrents/info", cookie=cookie)
+    try:
+        data = json.loads(text or "[]")
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _qb_match(torrents: list[dict], names: list[str]) -> list[dict]:
+    """按种子名精确匹配（qB 里存的是站点给的原始种子名）。"""
+    want = {n.strip() for n in names if n and n.strip()}
+    return [t for t in torrents if str(t.get("name") or "").strip() in want]
+
+
+def _dir_size(path: Path) -> int:
+    total = 0
+    try:
+        for p in path.rglob("*"):
+            if p.is_file():
+                try:
+                    total += p.stat().st_size
+                except OSError:
+                    pass
+    except Exception:
+        pass
+    return total
+
+
+def _targets_for(name: str, disc: str | None) -> dict:
+    """算出「源目录 / ISO 产物」的实际路径（全部经 _safe_name 校验）。"""
+    src = _resolved_child_under(DATA_DIR, name, disc) if disc else _resolved_child_under(DATA_DIR, name)
+    out_paths: list[Path] = []
+    try:
+        iso = _find_best_iso_path(name, disc)
+        if iso:
+            out_paths.append(iso)
+    except Exception:
+        pass
+    for cand in ([OUT_DIR / f"{name}.iso"] if not disc else [OUT_DIR / name / f"{disc}.iso"]):
+        try:
+            rp = cand.resolve()
+            if rp.is_relative_to(OUT_DIR.resolve()) and rp.exists() and rp not in out_paths:
+                out_paths.append(rp)
+        except Exception:
+            pass
+    return {"source": src, "out": out_paths}
+
+
 @app.get("/api/settings")
 def api_settings_get():
     cfg = _get_config()
@@ -1204,6 +1295,9 @@ def api_settings_get():
             CFG_QB_WEBHOOK_ENABLED: _cfg_bool(cfg, CFG_QB_WEBHOOK_ENABLED, False),
             CFG_QB_AUTO_CONVERT: _cfg_bool(cfg, CFG_QB_AUTO_CONVERT, False),
             CFG_QB_AUTO_ED2K: _cfg_bool(cfg, CFG_QB_AUTO_ED2K, False),
+            CFG_QB_URL: str(cfg.get(CFG_QB_URL) or DEFAULT_QB_URL),
+            CFG_QB_USERNAME: str(cfg.get(CFG_QB_USERNAME) or ""),
+            "qb_has_password": bool(cfg.get(CFG_QB_PASSWORD)),
         }
     )
 
@@ -1226,6 +1320,11 @@ def api_settings_post():
     cfg[CFG_QB_WEBHOOK_ENABLED] = bool(enabled)
     cfg[CFG_QB_AUTO_CONVERT] = bool(auto_convert)
     cfg[CFG_QB_AUTO_ED2K] = bool(auto_ed2k)
+    for key in (CFG_QB_URL, CFG_QB_USERNAME):
+        if key in payload:
+            cfg[key] = str(payload.get(key) or "").strip()
+    if "qb_password" in payload and str(payload.get("qb_password") or ""):
+        cfg[CFG_QB_PASSWORD] = str(payload.get("qb_password"))
     _save_config(cfg)
     return jsonify(
         {
@@ -1644,6 +1743,9 @@ def index():
         qb_webhook_enabled=_cfg_bool(cfg, CFG_QB_WEBHOOK_ENABLED, False),
         qb_auto_convert_iso=_cfg_bool(cfg, CFG_QB_AUTO_CONVERT, False),
         qb_auto_ed2k=_cfg_bool(cfg, CFG_QB_AUTO_ED2K, False),
+        qb_url=str(cfg.get(CFG_QB_URL) or DEFAULT_QB_URL),
+        qb_username=str(cfg.get(CFG_QB_USERNAME) or ""),
+        qb_has_password=bool(cfg.get(CFG_QB_PASSWORD)),
     )
 
 
@@ -1861,6 +1963,147 @@ def clear_job():
                 if k == name or k.startswith(f"{name}::"):
                     JOBS.pop(k, None)
     return redirect(url_for("index"))
+
+
+@app.post("/api/qb/test")
+def api_qb_test():
+    try:
+        cookie = _qb_login()
+        torrents = _qb_torrents(cookie)
+        url, user, _ = _qb_conn()
+        return jsonify({"ok": True, "url": url, "username": user, "torrents": len(torrents)})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+
+@app.post("/api/delete")
+def api_delete():
+    """一键删除：qB 种子 / 源目录 / ISO 产物。dry_run=true 只返回预览清单。"""
+    data = request.get_json(silent=True) if request.is_json else None
+    payload = data if isinstance(data, dict) else {}
+    try:
+        name = _safe_name(str(payload.get("name") or ""))
+        disc_raw = str(payload.get("disc") or "").strip()
+        disc = _safe_name(disc_raw) if disc_raw else None
+    except ValueError:
+        return jsonify({"ok": False, "error": "名称不合法"}), 400
+
+    dry_run = bool(payload.get("dry_run"))
+    want = payload.get("targets") or ["torrent", "source", "out"]
+    if not isinstance(want, list):
+        want = ["torrent", "source", "out"]
+
+    # 运行中禁止删除
+    key = _job_key(name, disc)
+    with JOBS_LOCK:
+        running = any(k == key or (disc is None and k.startswith(f"{name}::")) for k in JOBS.keys())
+    if running:
+        return jsonify({"ok": False, "error": "任务正在运行，先停止再删除"}), 409
+
+    t = _targets_for(name, disc)
+    src: Path = t["source"]
+    outs: list[Path] = t["out"]
+
+    # 种子名：单碟用种子名，合集用各碟目录名；都拿不到就用合集名
+    seed_names = [disc] if disc else [name]
+    torrent_hits: list[dict] = []
+    torrent_err = ""
+    if "torrent" in want:
+        try:
+            cookie = _qb_login()
+            torrent_hits = _qb_match(_qb_torrents(cookie), seed_names)
+        except Exception as exc:
+            torrent_err = str(exc)
+
+    plan = {
+        "ok": True,
+        "dry_run": True,
+        "name": name,
+        "disc": disc,
+        "items": [
+            {
+                "key": "torrent",
+                "label": "qBittorrent 种子",
+                "note": "只移除种子，qB 里已下载的文件不动（文件由本服务自己删）",
+                "exists": bool(torrent_hits),
+                "detail": torrent_err or "%d 个种子：%s" % (
+                    len(torrent_hits), "、".join(str(x.get("name")) for x in torrent_hits[:3])),
+                "names": [str(x.get("name")) for x in torrent_hits],
+                "size": sum(int(x.get("size") or 0) for x in torrent_hits),
+            },
+            {
+                "key": "source",
+                "label": "源目录",
+                "note": str(src.relative_to(ROOT)) if src.exists() else "不存在",
+                "exists": src.exists(),
+                "detail": str(src.relative_to(ROOT)),
+                "size": _dir_size(src) if src.exists() else 0,
+            },
+            {
+                "key": "out",
+                "label": "ISO 产物",
+                "note": "、".join(str(p.relative_to(ROOT)) for p in outs) or "未找到",
+                "exists": bool(outs),
+                "detail": "、".join(str(p.relative_to(ROOT)) for p in outs),
+                "size": sum(p.stat().st_size for p in outs if p.exists()),
+            },
+        ],
+    }
+    if dry_run:
+        return jsonify(plan)
+
+    done: list[str] = []
+    errors: list[str] = []
+
+    if "torrent" in want:
+        if torrent_err:
+            errors.append("种子：" + torrent_err)
+        elif torrent_hits:
+            try:
+                cookie = _qb_login()
+                hashes = "|".join(str(x.get("hash")) for x in torrent_hits if x.get("hash"))
+                _qb_http("/api/v2/torrents/delete", {"hashes": hashes, "deleteFiles": "false"}, cookie=cookie)
+                done.append("种子 %d 个" % len(torrent_hits))
+            except Exception as exc:
+                errors.append("种子删除失败：" + str(exc))
+
+    if "source" in want and src.exists():
+        try:
+            if not src.resolve().is_relative_to(DATA_DIR.resolve()) or src.resolve() == DATA_DIR.resolve():
+                raise RuntimeError("路径越界，已拒绝")
+            shutil.rmtree(src)
+            done.append("源目录 %s" % src.relative_to(ROOT))
+        except Exception as exc:
+            errors.append("源目录删除失败：" + str(exc))
+
+    if "out" in want:
+        removed = 0
+        for p in outs:
+            try:
+                if p.resolve().is_relative_to(OUT_DIR.resolve()) and p.is_file():
+                    p.unlink()
+                    removed += 1
+            except Exception as exc:
+                errors.append("ISO 删除失败：" + str(exc))
+        if removed:
+            done.append("ISO %d 个" % removed)
+
+    # 清掉对应的 ed2k 缓存与任务记录
+    try:
+        if disc is None:
+            db = _load_ed2k_db()
+            for k in [k for k in db.keys() if k == name or k.startswith(f"{name}/")]:
+                db.pop(k, None)
+            _save_ed2k_db(db)
+    except Exception:
+        pass
+    with JOBS_LOCK:
+        for k in list(JOBS.keys()):
+            if k == key or (disc is None and k.startswith(f"{name}::")):
+                JOBS.pop(k, None)
+
+    return jsonify({"ok": not errors, "done": done, "errors": errors})
+
 
 
 @app.get("/api/status")

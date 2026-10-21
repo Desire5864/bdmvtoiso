@@ -190,6 +190,16 @@
   .modal h3{margin:0 0 4px;font-size:14px}
   .modal p{margin:0 0 12px;font-size:12px;color:var(--muted)}
   .modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+  .modal.wide{max-width:520px}
+  .dellist{display:flex;flex-direction:column;gap:8px;margin:6px 0 2px}
+  .delrow{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);
+          border-radius:9px;background:var(--surface-2)}
+  .delrow.off{opacity:.5}
+  .delrow input{margin-top:3px;flex:none}
+  .delrow .dl{font-size:12.5px;font-weight:500}
+  .delrow .dd{font:11px/1.5 var(--mono);color:var(--muted);word-break:break-all;margin-top:2px}
+  .delrow .ds{font:11px var(--mono);color:var(--err);white-space:nowrap;margin-left:auto}
+  .btn.danger:disabled{opacity:.45;cursor:not-allowed}
 
   .foot-note{margin-top:22px;font-size:11px;color:var(--muted);font-family:var(--mono)}
 
@@ -379,6 +389,24 @@
       </div>
 
       <div class="panel">
+        <h2>qBittorrent 连接</h2>
+        <p class="panel-sub">「删除」动作要靠它移除对应种子（只删种子，qB 里已下载的文件不动，文件由本服务自己删）</p>
+        <div class="form-2">
+          <div class="field"><label for="qbUrl">WebUI 地址</label>
+            <input id="qbUrl" placeholder="http://192.168.3.36:8088" value="{{ qb_url|e }}" autocomplete="off" /></div>
+          <div class="field"><label for="qbUser">用户名</label>
+            <input id="qbUser" value="{{ qb_username|e }}" autocomplete="off" /></div>
+        </div>
+        <div class="field"><label for="qbPass">密码</label>
+          <input id="qbPass" type="password" autocomplete="new-password"
+                 placeholder="{{ '已保存，留空则不修改' if qb_has_password else '未设置' }}" /></div>
+        <div class="actions" style="margin-top:4px">
+          <button class="btn" data-act="qbtest">测试连接</button>
+          <button class="btn primary" data-act="qbsave">保存</button>
+        </div>
+      </div>
+
+      <div class="panel">
         <h2>账号</h2>
         <p class="panel-sub">登录 session + 密码哈希，改密后立即生效</p>
         <div class="row" style="display:block">
@@ -407,6 +435,21 @@
 </div>
 
 <div id="toasts" aria-live="polite"></div>
+
+<div class="mask" id="delMask" hidden>
+  <div class="modal wide">
+    <h3 style="color:var(--err)">删除确认</h3>
+    <p id="delHead">以下内容会被永久删除，无法恢复。请逐项确认：</p>
+    <div class="dellist" id="delList"></div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:14px;font-size:12.5px;cursor:pointer">
+      <input type="checkbox" id="delAck" /> <span>我已确认，理解这些操作<b style="color:var(--err)">不可恢复</b></span>
+    </label>
+    <div class="modal-foot">
+      <button type="button" class="btn ghost" data-act="closeDel">取消</button>
+      <button type="button" class="btn danger" id="delGo" disabled>永久删除</button>
+    </div>
+  </div>
+</div>
 
 <div class="mask" id="mask" hidden>
   <form class="modal" id="renameForm">
@@ -564,14 +607,17 @@ function actionsOf(p, u, compact) {
       ? '<button class="btn' + sz + '" data-act="copy" data-copy="' + esc(u.ed2k) + '">复制 ed2k</button>'
       : '<button class="btn' + sz + '" data-act="hash" data-id="' + id + '">算 ed2k</button>') +
       '<button class="btn' + sz + '" data-act="rename" data-id="' + id + '">改名</button>' +
-      '<button class="btn' + sz + '" data-act="clear" data-id="' + id + '">清除</button>';
+      '<button class="btn' + sz + '" data-act="clear" data-id="' + id + '">清除</button>' +
+      '<button class="btn danger' + sz + '" data-act="del" data-id="' + id + '">删除</button>';
   }
   if (u.status === 'error') {
     return (u.outExists ? '' : '<button class="btn primary' + sz + '" data-act="start" data-id="' + id + '">重试</button>') +
-      '<button class="btn' + sz + '" data-act="clear" data-id="' + id + '">清除</button>';
+      '<button class="btn' + sz + '" data-act="clear" data-id="' + id + '">清除</button>' +
+      '<button class="btn danger' + sz + '" data-act="del" data-id="' + id + '">删除</button>';
   }
   return '<button class="btn primary' + sz + '" data-act="start" data-id="' + id + '">开始打包</button>' +
-    '<button class="btn' + sz + '" data-act="clear" data-id="' + id + '">清除</button>';
+    '<button class="btn' + sz + '" data-act="clear" data-id="' + id + '">清除</button>' +
+      '<button class="btn danger' + sz + '" data-act="del" data-id="' + id + '">删除</button>';
 }
 
 function ed2kRow(u) {
@@ -680,6 +726,55 @@ function renderPacks() {
         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>' +
         '<div>' + (state.q ? '没有匹配的条目，换个关键词试试' : 'data/ 目录下还没有可打包的资源') + '</div></div>';
   renderStats();
+}
+
+let delCtx = null;
+async function openDelete(rec) {
+  const u = rec.u;
+  const targets = ['torrent', 'source', 'out'];
+  let plan;
+  try {
+    const r = await fetch('/api/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: rec.pack.name, disc: u.disc, targets: targets, dry_run: true }) });
+    plan = await r.json();
+  } catch (err) { toast('读取待删清单失败：' + err.message); return; }
+  if (!plan.ok) { toast(plan.error || '无法删除'); return; }
+  delCtx = { rec: rec, targets: targets };
+  $('#delHead').textContent = '【' + (u.disc || rec.pack.name) + '】以下内容会被永久删除，无法恢复：';
+  $('#delList').innerHTML = plan.items.map(function (it, i) {
+    const size = it.size ? fmtGB(it.size) : '—';
+    const dis = it.exists ? '' : ' disabled';
+    return '<label class="delrow' + (it.exists ? '' : ' off') + '">' +
+      '<input type="checkbox" data-dk="' + it.key + '"' + (it.exists ? ' checked' : '') + dis + '>' +
+      '<div style="flex:1;min-width:0"><div class="dl">' + it.label + '</div>' +
+      '<div class="dd">' + it.detail + '</div>' +
+      '<div class="dd" style="color:var(--muted)">' + it.note + '</div></div>' +
+      '<div class="ds">' + size + '</div></label>';
+  }).join('');
+  $('#delAck').checked = false;
+  $('#delGo').disabled = true;
+  $('#delMask').hidden = false;
+}
+
+async function doDelete() {
+  if (!delCtx) return;
+  const targets = Array.from(document.querySelectorAll('#delList input[data-dk]'))
+    .filter(function (x) { return x.checked; }).map(function (x) { return x.getAttribute('data-dk'); });
+  const go = $('#delGo');
+  go.disabled = true;
+  try {
+    const r = await fetch('/api/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: delCtx.rec.pack.name, disc: delCtx.rec.u.disc, targets: targets }) });
+    const d = await r.json();
+    if (d.ok) {
+      toast('已删除：' + ((d.done || []).join(' · ') || '无'));
+      $('#delMask').hidden = true;
+      setTimeout(function () { location.reload(); }, 700);
+    } else {
+      toast('部分失败：' + ((d.errors || []).join('；') || d.error || ''));
+      go.disabled = false;
+    }
+  } catch (err) { toast('删除失败：' + err.message); go.disabled = false; }
 }
 
 function renderIso() {
@@ -827,6 +922,15 @@ async function poll() {
   if (changed) render(); else paintProgress();
 }
 
+document.addEventListener('change', function (ev) {
+  if (ev.target && ev.target.id === 'delAck') {
+    $('#delGo').disabled = !ev.target.checked;
+  }
+});
+document.addEventListener('click', function (ev) {
+  if (ev.target && ev.target.id === 'delGo') { ev.preventDefault(); doDelete(); }
+}, true);
+
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-act]');
   if (!b) return;
@@ -834,6 +938,34 @@ document.addEventListener('click', async e => {
 
   if (act === 'copy') { copyText(b.dataset.copy || ''); return; }
 
+  if (act === 'closeDel') { $('#delMask').hidden = true; return; }
+  if (act === 'del') {
+    const rec0 = ALL.get(b.dataset.id);
+    if (rec0) await openDelete(rec0);
+    return;
+  }
+  if (act === 'qbtest') {
+    b.disabled = true;
+    try {
+      const r = await fetch('/api/qb/test', { method: 'POST' });
+      const d = await r.json();
+      toast(d.ok ? ('qB 连接正常 · ' + d.torrents + ' 个种子') : ('连接失败：' + (d.error || '')));
+    } catch (err) { toast('连接失败：' + err.message); }
+    finally { b.disabled = false; }
+    return;
+  }
+  if (act === 'qbsave') {
+    const body = { qb_url: $('#qbUrl').value.trim(), qb_username: $('#qbUser').value.trim() };
+    const pwd = $('#qbPass').value;
+    if (pwd) body.qb_password = pwd;
+    try {
+      const r = await fetch('/api/settings', { method: 'POST',
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (d.ok) { $('#qbPass').value = ''; toast('qB 连接设置已保存'); } else { toast('保存失败'); }
+    } catch (err) { toast('保存失败：' + err.message); }
+    return;
+  }
   if (act === 'start' || act === 'stop' || act === 'clear') {
     const rec = ALL.get(b.dataset.id);
     if (!rec) return;
