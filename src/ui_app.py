@@ -328,8 +328,10 @@ def _iter_iso_files() -> list[Path]:
     ISO_DIR.mkdir(parents=True, exist_ok=True)
     found: list[Path] = []
     try:
-        for p in ISO_DIR.rglob("*.iso"):
-            if p.is_file():
+        # 扩展名大小写不敏感：qB/站点工具导出的镜像常是 `xxx.ISO`，
+        # 用 rglob("*.iso") 在 Linux 上会直接把这类文件漏掉（ISO 库显示为空）
+        for p in ISO_DIR.rglob("*"):
+            if p.is_file() and p.suffix.lower() == ".iso":
                 found.append(p)
     except OSError:
         pass
