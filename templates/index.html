@@ -826,6 +826,7 @@ async function doDelete() {
   const targets = Array.from(document.querySelectorAll('#delList input[data-dk]'))
     .filter(function (x) { return x.checked; }).map(function (x) { return x.getAttribute('data-dk'); });
   const go = $('#delGo');
+  if (!targets.length) { toast('请至少勾选一项'); return; }
   go.disabled = true;
   try {
     const r = await fetch('/api/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1039,8 +1040,13 @@ async function poll() {
 }
 
 document.addEventListener('change', function (ev) {
-  if (ev.target && ev.target.id === 'delAck') {
-    $('#delGo').disabled = !ev.target.checked;
+  const t = ev.target;
+  if (!t) return;
+  if (t.id === 'delAck' || t.hasAttribute('data-dk')) {
+    const acked = $('#delAck').checked;
+    const anyPicked = Array.prototype.some.call(
+      document.querySelectorAll('#delList input[data-dk]'), function (x) { return x.checked; });
+    $('#delGo').disabled = !(acked && anyPicked);
   }
 });
 document.addEventListener('click', function (ev) {

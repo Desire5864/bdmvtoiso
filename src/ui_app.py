@@ -53,6 +53,41 @@ DEFAULT_QB_URL = "http://192.168.3.36:8088"
 
 ED2K_CHUNK_BYTES = 9500 * 1024
 
+# 软删除回收站：源目录与 ISO 各自同卷，rename 是 O(1)
+DATA_TRASH = DATA_DIR / ".trash"
+OUT_TRASH = OUT_DIR / ".trash"
+_TRASH_LAST_PRUNE = 0.0
+TRASH_KEEP_DAYS = 7
+
+
+def _trash_slot(root: Path) -> Path:
+    """取（或建）本次删除的时间戳目录。"""
+    root.mkdir(parents=True, exist_ok=True)
+    slot = root / time.strftime("%Y%m%d-%H%M%S")
+    slot.mkdir(parents=True, exist_ok=True)
+    return slot
+
+
+def _prune_trash(keep_days: int = TRASH_KEEP_DAYS) -> None:
+    """清掉超过保留期的回收站目录（每小时最多跑一次）。"""
+    global _TRASH_LAST_PRUNE
+    now = time.time()
+    if now - _TRASH_LAST_PRUNE < 3600:
+        return
+    _TRASH_LAST_PRUNE = now
+    for root in (DATA_TRASH, OUT_TRASH):
+        try:
+            if not root.is_dir():
+                continue
+            for slot in root.iterdir():
+                try:
+                    if slot.is_dir() and now - slot.stat().st_mtime > keep_days * 86400:
+                        shutil.rmtree(slot, ignore_errors=True)
+                except OSError:
+                    pass
+        except OSError:
+            pass
+
 
 def _load_or_init_config() -> dict:
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -1618,7 +1653,10 @@ def _scan_data_items() -> list[dict]:
     _prune_iso_ed2k_db_missing_files()
 
     items: list[dict] = []
-    for p in sorted([x for x in DATA_DIR.iterdir() if x.is_dir()], key=lambda x: x.name.lower()):
+    _prune_trash()
+    # 跳过 .trash 这类隐藏目录，别把它们当成待打包资源
+    for p in sorted([x for x in DATA_DIR.iterdir() if x.is_dir() and not x.name.startswith(".")],
+                    key=lambda x: x.name.lower()):
         name = p.name
         if _is_bdmv_root(p):
             out_iso = _find_best_iso_path(name, None) or (OUT_DIR / f"{name}.iso")
@@ -1991,16 +2029,32 @@ def api_delete():
         return jsonify({"ok": False, "error": "名称不合法"}), 400
 
     dry_run = bool(payload.get("dry_run"))
-    want = payload.get("targets") or ["torrent", "source", "out"]
-    if not isinstance(want, list):
-        want = ["torrent", "source", "out"]
 
-    # 运行中禁止删除
+    # targets 必须显式给出且非空。旧实现用 `payload.get("targets") or [...]`，
+    # 空列表是假值 → 静默变成「三项全删」，这是危险缺省，改掉。
+    raw_targets = payload.get("targets")
+    if raw_targets is None:
+        want = ["torrent", "source", "out"]
+    elif not isinstance(raw_targets, list) or not raw_targets:
+        return jsonify({"ok": False, "error": "未选择任何删除项"}), 400
+    else:
+        want = [t for t in ("torrent", "source", "out") if t in raw_targets]
+        if not want:
+            return jsonify({"ok": False, "error": "删除项不合法"}), 400
+
+    # 只有「真的在跑」才拦。旧实现判断的是 key 是否存在，而任务完成后
+    # Job 仍留在 JOBS 里（用于 /api/status），于是任何已完成的任务都被误判成
+    # 「任务正在运行」，网页端删除永远失败。
     key = _job_key(name, disc)
+    busy_status = ("running", "pending", "queued")
     with JOBS_LOCK:
-        running = any(k == key or (disc is None and k.startswith(f"{name}::")) for k in JOBS.keys())
-    if running:
-        return jsonify({"ok": False, "error": "任务正在运行，先停止再删除"}), 409
+        busy = [
+            k for k, j in JOBS.items()
+            if (k == key or (disc is None and k.startswith(f"{name}::")))
+            and str(getattr(j, "status", "")) in busy_status
+        ]
+    if busy:
+        return jsonify({"ok": False, "error": "任务正在运行，先停止再删除", "running": busy}), 409
 
     t = _targets_for(name, disc)
     src: Path = t["source"]
@@ -2069,26 +2123,30 @@ def api_delete():
             except Exception as exc:
                 errors.append("种子删除失败：" + str(exc))
 
+    # 软删除：先 rename 进回收站（同卷，瞬间完成），确认后才算「已删」。
+    # 真要腾空间就等 _prune_trash 按保留期清，或手工清 .trash。
     if "source" in want and src.exists():
         try:
             if not src.resolve().is_relative_to(DATA_DIR.resolve()) or src.resolve() == DATA_DIR.resolve():
                 raise RuntimeError("路径越界，已拒绝")
-            shutil.rmtree(src)
-            done.append("源目录 %s" % src.relative_to(ROOT))
+            dst = _trash_slot(DATA_TRASH) / src.name
+            shutil.move(str(src), str(dst))
+            done.append("源目录已移入回收站 data/.trash/%s" % dst.parent.name)
         except Exception as exc:
             errors.append("源目录删除失败：" + str(exc))
 
     if "out" in want:
-        removed = 0
+        moved = 0
         for p in outs:
             try:
                 if p.resolve().is_relative_to(OUT_DIR.resolve()) and p.is_file():
-                    p.unlink()
-                    removed += 1
+                    dst = _trash_slot(OUT_TRASH) / p.name
+                    shutil.move(str(p), str(dst))
+                    moved += 1
             except Exception as exc:
                 errors.append("ISO 删除失败：" + str(exc))
-        if removed:
-            done.append("ISO %d 个" % removed)
+        if moved:
+            done.append("ISO %d 个已移入回收站 updata/.trash（保留 %d 天）" % (moved, TRASH_KEEP_DAYS))
 
     # 清掉对应的 ed2k 缓存与任务记录
     try:
