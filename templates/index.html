@@ -19,6 +19,7 @@
     --accent:#5B8CFF; --accent-2:#3DDC97; --accent-soft:rgba(91,140,255,.14);
     --ok:#3DDC97; --ok-soft:rgba(61,220,151,.13);
     --warn:#E9B055; --err:#FF7085; --err-soft:rgba(255,112,133,.13);
+    --warn-soft:rgba(233,176,85,.14); --hash:#E9B055; --hash-2:#FFD08A;
   }
   html[data-theme="light"]{
     --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#EDF0F5; --rail:#FFFFFF;
@@ -27,6 +28,7 @@
     --accent:#3B6BF5; --accent-2:#0FA97A; --accent-soft:rgba(59,107,245,.09);
     --ok:#12996A; --ok-soft:rgba(18,153,106,.10);
     --warn:#A9711A; --err:#D9455F; --err-soft:rgba(217,69,95,.10);
+    --warn-soft:rgba(233,176,85,.20); --hash:#B4761B; --hash-2:#E0A447;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -146,6 +148,31 @@
   .u-main .meta{margin-top:1px}
   .u-right{display:flex;align-items:center;gap:10px}
 
+  /* ---- ISO 库：主副两栏行 ---- */
+  .isolist{display:flex;flex-direction:column;gap:10px}
+  .isorow{display:grid;grid-template-columns:minmax(0,1fr) 232px;background:var(--surface);
+          border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .isorow:hover{border-color:var(--line-strong)}
+  .iso-main{padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+  .iso-ttl{font-size:15px;font-weight:600;line-height:1.35;word-break:break-word}
+  .iso-tags{display:flex;gap:6px;flex-wrap:wrap}
+  .iso-tag{display:inline-flex;align-items:center;height:21px;padding:0 8px;border-radius:6px;
+           background:var(--surface-2);color:var(--muted);font-size:11.5px;white-space:nowrap;
+           max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  .iso-tag.hi{background:var(--accent-soft);color:var(--accent)}
+  .iso-ek{font:11.5px var(--mono);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .iso-side{border-left:1px solid var(--line);background:var(--surface-2);padding:14px;
+            display:flex;flex-direction:column;gap:9px;align-items:flex-start;min-width:0}
+  .iso-size{font:17px var(--mono);font-weight:600;font-variant-numeric:tabular-nums}
+  .iso-size small{display:block;font:11px var(--sans);font-weight:400;color:var(--muted);margin-top:1px}
+  .iso-acts{display:flex;gap:6px;width:100%}
+  .iso-acts .btn{flex:1;justify-content:center;height:30px;font-size:12px}
+  .iso-ptop{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--warn);
+            width:100%;font-variant-numeric:tabular-nums}
+  .chip.hash{background:var(--warn-soft);color:var(--warn)}
+  .bar.hash i{background:linear-gradient(90deg,var(--hash),var(--hash-2))}
+  .bar.full{width:100%}
+
   table{width:100%;border-collapse:separate;border-spacing:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
   th{text-align:left;font-weight:500;font-size:11px;letter-spacing:.03em;color:var(--muted);padding:9px 16px;background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap}
   td{padding:11px 16px;border-bottom:1px solid var(--line);font-size:12.5px;vertical-align:middle}
@@ -227,6 +254,11 @@
     .search{max-width:none;min-width:0}
     .stats{grid-template-columns:repeat(2,1fr)}
     .grid{grid-template-columns:1fr}
+    .isorow{grid-template-columns:minmax(0,1fr)}
+    .iso-side{border-left:0;border-top:1px solid var(--line);flex-direction:row;align-items:center;
+              justify-content:space-between;flex-wrap:wrap;gap:10px}
+    .iso-acts{width:auto}
+    .iso-acts .btn{flex:none}
     .disc-row,.card-head{gap:10px}
     .card-head{flex-wrap:wrap}
     .head-right{flex-basis:100%;justify-content:flex-start;margin-left:49px;margin-top:2px}
@@ -344,14 +376,7 @@
         </div>
       </div>
 
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr><th style="width:40%">文件</th><th style="width:11%">大小</th><th class="c-ed2k" style="width:32%">ed2k 链接</th><th style="width:17%"></th></tr>
-          </thead>
-          <tbody id="isoBody"></tbody>
-        </table>
-      </div>
+      <div class="isolist" id="isoList"></div>
       <p class="foot-note">重命名不会重算哈希，只改写链接内的文件名 · size + mtime 变化才失效</p>
     </section>
 
@@ -560,7 +585,7 @@ function addUnit(pack, o, disc) {
   if (it.kind === 'box') (it.discs || []).forEach(d => addUnit(pack, d, d.name));
   else if (it.kind === 'disc') addUnit(pack, it, null);
 });
-state.isos = (BOOT.isos || []).map(x => ({ file: x.file, size: Number(x.size || 0), ed2k: x.ed2k || '', busy: false }));
+state.isos = (BOOT.isos || []).map(x => ({ file: x.file, size: Number(x.size || 0), ed2k: x.ed2k || '', busy: false, progress: 0 }));
 
 const units = () => state.packs.flatMap(p => p.units);
 const matches = p => !state.q || p.name.toLowerCase().includes(state.q.toLowerCase()) ||
@@ -777,24 +802,75 @@ async function doDelete() {
   } catch (err) { toast('删除失败：' + err.message); go.disabled = false; }
 }
 
+function splitIsoName(fn) {
+  // "[中文名][规格][源名][体积].iso" → 四段
+  const body = /\.iso$/i.test(fn) ? fn.slice(0, -4) : fn;
+  const parts = body.split('][');
+  if (parts.length >= 2) {
+    parts[0] = parts[0].replace(/^\[/, '');
+    parts[parts.length - 1] = parts[parts.length - 1].replace(/\]$/, '');
+  }
+  return parts;
+}
+
+function isoView(fn) {
+  const parts = splitIsoName(fn);
+  return {
+    main: parts[0] || fn,
+    tags: parts.length >= 3 ? parts[1].split(/\s+/).filter(Boolean).slice(0, 4) : [],
+    source: parts.length >= 3 ? parts[parts.length - 2] : (parts[1] || fn)
+  };
+}
+
+function paintIsoProgress() {
+  state.isos.forEach((i, ix) => {
+    if (!i.busy) return;
+    const pct = (i.progress || 0) * 100;
+    const pb = document.querySelector('[data-ipb="' + ix + '"]');
+    const pt = document.querySelector('[data-ipt="' + ix + '"]');
+    if (pb) pb.style.width = pct.toFixed(1) + '%';
+    if (pt) pt.textContent = Math.round(pct) + '%';
+  });
+}
+
 function renderIso() {
   const rows = state.isos.filter(i => !state.q || i.file.toLowerCase().includes(state.q.toLowerCase()));
-  $('#isoBody').innerHTML = rows.length ? rows.map(i =>
-    '<tr>' +
-      '<td><div class="fname">' + esc(i.file) + '</div></td>' +
-      '<td><div class="fsize">' + fmtGB(i.size) + '</div></td>' +
-      '<td class="c-ed2k">' + (i.ed2k
-        ? '<div class="link" style="background:transparent;border:0;padding:0"><span style="font-size:10.5px">' + esc(i.ed2k.split('|')[4] || '') + '…</span></div>'
-        : (i.busy ? '<span class="chip run"><i class="dot"></i>计算中</span>' : '<span class="chip idle">未生成</span>')) + '</td>' +
-      '<td><div class="row-actions">' +
-        (i.busy ? '<button class="btn sm" disabled>计算中…</button>'
-          : (i.ed2k
-            ? '<button class="btn sm" data-act="copy" data-copy="' + esc(i.ed2k) + '">复制</button>'
-            : '<button class="btn sm" data-act="hashiso" data-file="' + esc(i.file) + '">算 ed2k</button>')) +
-        '<button class="btn sm" data-act="renamesio" data-file="' + esc(i.file) + '">改名</button>' +
-      '</div></td>' +
-    '</tr>').join('')
-    : '<tr><td colspan="4"><div class="empty" style="border:0">暂无镜像文件</div></td></tr>';
+  const box = $('#isoList');
+  if (!rows.length) {
+    box.innerHTML = '<div class="empty">暂无镜像文件</div>';
+    renderStats();
+    return;
+  }
+  box.innerHTML = rows.map(i => {
+    const ix = state.isos.indexOf(i);
+    const v = isoView(i.file);
+    const tags = v.tags.map((t, k) =>
+      '<span class="iso-tag' + (k < 2 ? ' hi' : '') + '">' + esc(t) + '</span>').join('');
+    let mid, chip, acts;
+    if (i.ed2k) {
+      mid = '<div class="iso-ek" title="' + esc(i.ed2k) + '">' + esc(i.ed2k) + '</div>';
+      chip = '<span class="chip done">已完成</span>';
+      acts = '<button class="btn" data-act="copy" data-copy="' + esc(i.ed2k) + '">复制</button>' +
+        '<button class="btn" data-act="renamesio" data-file="' + esc(i.file) + '">改名</button>';
+    } else if (i.busy) {
+      const pct = Math.round((i.progress || 0) * 100);
+      mid = '<div class="iso-ptop"><span>正在生成 ed2k · 分块校验</span>' +
+        '<b data-ipt="' + ix + '">' + pct + '%</b></div>' +
+        '<div class="bar hash full"><i data-ipb="' + ix + '" style="width:' + pct + '%"></i></div>';
+      chip = '<span class="chip hash"><i class="dot"></i>算 ed2k</span>';
+      acts = '<button class="btn" disabled style="opacity:.45">计算中…</button>';
+    } else {
+      mid = '<div class="iso-ek">ed2k 尚未生成 · 分块校验约需数分钟</div>';
+      chip = '<span class="chip idle">未生成</span>';
+      acts = '<button class="btn" data-act="hashiso" data-file="' + esc(i.file) + '">算 ed2k</button>' +
+        '<button class="btn" data-act="renamesio" data-file="' + esc(i.file) + '">改名</button>';
+    }
+    return '<article class="isorow">' +
+      '<div class="iso-main"><div class="iso-ttl">' + esc(v.main) + '</div>' +
+      (tags ? '<div class="iso-tags">' + tags + '</div>' : '') + mid + '</div>' +
+      '<div class="iso-side"><div class="iso-size">' + fmtGB(i.size) + '<small>ISO 体积</small></div>' +
+      chip + '<div class="iso-acts">' + acts + '</div></div></article>';
+  }).join('');
   renderStats();
 }
 
@@ -1026,8 +1102,8 @@ document.addEventListener('click', async e => {
   if (act === 'hashiso') {
     const i = state.isos.find(x => x.file === b.dataset.file);
     if (!i) return;
-    i.busy = true; renderIso();
-    try { i.ed2k = await ed2kForIso(i.file); toast('ed2k 已生成 · ' + i.file); }
+    i.busy = true; i.progress = 0; renderIso();
+    try { i.ed2k = await ed2kForIso(i.file, p => { i.progress = p; paintIsoProgress(); }); toast('ed2k 已生成 · ' + i.file); }
     catch (err) { toast('ed2k 失败：' + err.message); }
     finally { i.busy = false; renderIso(); }
     return;
@@ -1039,8 +1115,8 @@ document.addEventListener('click', async e => {
     b.disabled = true; b.textContent = '计算中…';
     let ok = 0;
     for (const i of todo) {
-      i.busy = true; renderIso();
-      try { i.ed2k = await ed2kForIso(i.file); ok++; } catch (_) {}
+      i.busy = true; i.progress = 0; renderIso();
+      try { i.ed2k = await ed2kForIso(i.file, p => { i.progress = p; paintIsoProgress(); }); ok++; } catch (_) {}
       i.busy = false; renderIso();
     }
     b.disabled = false; b.textContent = '批量计算 ed2k';
