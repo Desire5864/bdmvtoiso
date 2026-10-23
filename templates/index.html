@@ -136,10 +136,21 @@
   .btn.ghost{border-color:transparent;color:var(--muted)}
   .btn.ghost:hover{color:var(--text);background:var(--surface-2)}
 
-  .link{display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 8px 6px 10px;font:11px var(--mono);color:var(--muted)}
-  .link span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .link button{flex:none;display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-size:11px;font-family:var(--sans);padding:2px 4px;border-radius:4px}
+  .link{display:flex;align-items:flex-start;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 8px 8px 10px;font:11px/1.6 var(--mono);color:var(--muted)}
+  .link span{flex:1;min-width:0;white-space:normal;word-break:break-all;overflow-wrap:anywhere}
+  .link button{flex:none;display:inline-flex;align-items:center;gap:4px;color:var(--accent);font-size:11px;font-family:var(--sans);padding:2px 4px;border-radius:4px;margin-top:1px}
   .link button:hover{background:var(--accent-soft)}
+
+  /* ---- 打包工作台：主副两栏卡片 ---- */
+  .pcard{display:grid;grid-template-columns:minmax(0,1fr) 232px;background:var(--surface);
+         border:1px solid var(--line);border-radius:14px;overflow:hidden;transition:border-color .18s}
+  .pcard:hover{border-color:var(--line-strong)}
+  .pc-main{padding:16px 18px;display:flex;flex-direction:column;gap:11px;min-width:0}
+  .pc-title{display:flex;gap:11px;align-items:flex-start;min-width:0}
+  .pc-side{border-left:1px solid var(--line);background:var(--surface-2);padding:16px;
+           display:flex;flex-direction:column;gap:10px;align-items:flex-start;min-width:0}
+  .pc-acts{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+  .pc-acts .btn{flex:1 1 0;min-width:calc(50% - 3px);justify-content:center;height:30px;font-size:12px}
 
   .units{border-top:1px solid var(--line);display:flex;flex-direction:column}
   .unit{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
@@ -160,7 +171,8 @@
            background:var(--surface-2);color:var(--muted);font-size:11.5px;white-space:nowrap;
            max-width:100%;overflow:hidden;text-overflow:ellipsis}
   .iso-tag.hi{background:var(--accent-soft);color:var(--accent)}
-  .iso-ek{font:11.5px var(--mono);color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .iso-ek{font:11.5px/1.55 var(--mono);color:var(--muted);white-space:normal;
+          word-break:break-all;overflow-wrap:anywhere}
   .iso-side{border-left:1px solid var(--line);background:var(--surface-2);padding:14px;
             display:flex;flex-direction:column;gap:9px;align-items:flex-start;min-width:0}
   .iso-size{font:17px var(--mono);font-weight:600;font-variant-numeric:tabular-nums}
@@ -267,6 +279,11 @@
     .c-ed2k{display:none}
     td .row-actions{gap:4px}
     .form-2{grid-template-columns:1fr}
+    .pcard{grid-template-columns:minmax(0,1fr)}
+    .pc-side{border-left:0;border-top:1px solid var(--line);flex-direction:row;align-items:center;
+             justify-content:space-between;flex-wrap:wrap}
+    .pc-acts{width:auto}
+    .pc-acts .btn{flex:none}
     #toasts{bottom:78px;right:12px;left:12px}
   }
   .note{margin:0;max-width:680px;font-size:12px;color:var(--muted);line-height:1.6}
@@ -665,22 +682,41 @@ function boxIcon() {
     '<circle cx="22" cy="18.5" r="3.4" fill="currentColor" fill-opacity=".85"/></svg>';
 }
 
+function packVolume(u) {
+  const b = u.outBytes || u.total || 0;
+  return { size: b ? fmtGB(b) : '—', label: u.outBytes ? 'ISO 体积' : (u.total ? '源体积' : '体积未扫描') };
+}
+
+function packSide(u, acts, override) {
+  const vol = override || packVolume(u);
+  return '<div class="pc-side">' +
+    '<div class="iso-size">' + vol.size + '<small>' + vol.label + '</small></div>' +
+    chipOf(u) +
+    '<div class="pc-acts">' + acts + '</div></div>';
+}
+
 function packCard(p) {
   if (p.kind === 'unknown') {
-    return '<article class="card">' +
-      '<div class="card-head">' + discIcon() +
-        '<div class="grow"><div class="ttl">' + esc(p.name) + '</div><div class="meta">data/' + esc(p.name) + '</div></div>' +
-        '<span class="chip err">未识别</span>' +
+    return '<article class="pcard">' +
+      '<div class="pc-main">' +
+        '<div class="pc-title">' + discIcon() +
+          '<div class="grow"><div class="ttl">' + esc(p.name) + '</div>' +
+          '<div class="meta">data/' + esc(p.name) + '</div></div></div>' +
+        '<p class="note">未找到 <code>BDMV/index.bdmv</code>，这不是有效的蓝光目录。请检查解压是否完整，或确认该目录只是普通文件夹。</p>' +
       '</div>' +
-      '<p class="note">未找到 <code>BDMV/index.bdmv</code>，这不是有效的蓝光目录。请检查解压是否完整，或确认该目录只是普通文件夹。</p>' +
-      '<div class="actions"><button class="btn sm" data-act="rescan">重新识别</button>' +
-        '<button class="btn ghost sm" data-act="copy" data-copy="data/' + esc(p.name) + '">复制路径</button></div>' +
-    '</article>';
+      '<div class="pc-side">' +
+        '<div class="iso-size">—<small>未识别</small></div>' +
+        '<span class="chip err">未识别</span>' +
+        '<div class="pc-acts">' +
+          '<button class="btn" data-act="rescan">重新识别</button>' +
+          '<button class="btn ghost" data-act="copy" data-copy="data/' + esc(p.name) + '">复制路径</button>' +
+        '</div></div></article>';
   }
 
   if (p.kind === 'box') {
     const done = p.units.filter(u => u.status === 'done').length;
     const running = p.units.some(u => u.status === 'running');
+    const bytes = p.units.reduce((n, u) => n + (u.outBytes || 0), 0);
     const rows = p.units.map(u =>
       '<div class="unit">' +
         '<div class="u-main"><div class="u-name">' + esc(u.label || '') + '</div>' +
@@ -693,30 +729,34 @@ function packCard(p) {
         '<div class="u-right">' + actionsOf(p, u, true) + '</div>' +
       '</div>').join('');
 
-    return '<article class="card">' +
-      '<div class="card-head">' + boxIcon() +
-        '<div class="grow"><div class="ttl">' + esc(p.name) + '</div>' +
-          '<div class="meta">合集 · ' + p.units.length + ' 张碟 · data/' + esc(p.name) + '</div></div>' +
-        '<div class="head-right">' +
-          (done === p.units.length || running ? '' : '<button class="btn sm" data-act="startall" data-pack="' + esc(p.name) + '" data-rest="' + (p.units.length - done) + '">剩余全部打包</button>') +
-          '<span class="chip ' + (done === p.units.length ? 'done' : 'idle') + '">' + done + '/' + p.units.length + ' 已完成</span>' +
-        '</div>' +
+    const allDone = done === p.units.length;
+    return '<article class="pcard">' +
+      '<div class="pc-main">' +
+        '<div class="pc-title">' + boxIcon() +
+          '<div class="grow"><div class="ttl">' + esc(p.name) + '</div>' +
+          '<div class="meta">合集 · ' + p.units.length + ' 张碟 · data/' + esc(p.name) + '</div></div></div>' +
+        '<div class="units">' + rows + '</div>' +
       '</div>' +
-      '<div class="units">' + rows + '</div>' +
-    '</article>';
+      '<div class="pc-side">' +
+        '<div class="iso-size">' + (bytes ? fmtGB(bytes) : '—') + '<small>已出 ISO 合计</small></div>' +
+        '<span class="chip ' + (allDone ? 'done' : 'idle') + '">' + done + '/' + p.units.length + ' 已完成</span>' +
+        '<div class="pc-acts">' +
+          (allDone || running ? '' :
+            '<button class="btn" data-act="startall" data-pack="' + esc(p.name) + '" data-rest="' +
+            (p.units.length - done) + '">剩余全部打包</button>') +
+        '</div></div></article>';
   }
 
   const u = p.units[0];
-  return '<article class="card disc-row">' +
-    '<div class="card-head">' + discIcon() +
-      '<div class="grow"><div class="ttl">' + esc(p.name) + '</div>' +
-        '<div class="meta">data/' + esc(p.name) + '</div></div>' +
-      '<div class="head-right">' + chipOf(u) +
-        '<div class="actions">' + actionsOf(p, u, true) + '</div>' +
-      '</div>' +
+  return '<article class="pcard">' +
+    '<div class="pc-main">' +
+      '<div class="pc-title">' + discIcon() +
+        '<div class="grow"><div class="ttl">' + esc(p.name) + '</div>' +
+        '<div class="meta">data/' + esc(p.name) + '</div></div></div>' +
+      progressBlock(u) + ed2kRow(u) +
     '</div>' +
-    progressBlock(u) + ed2kRow(u) +
-  '</article>';
+    packSide(u, actionsOf(p, u, true)) +
+    '</article>';
 }
 
 function renderStats() {
