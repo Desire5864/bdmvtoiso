@@ -209,6 +209,24 @@
   .pc-acts{display:flex;flex-wrap:wrap;gap:6px;width:100%}
   .pc-acts .btn{flex:1 1 0;min-width:calc(50% - 3px);justify-content:center;height:28px;font-size:12px}
 
+  /* 卡片操作按钮：实心 + 按功能上色（复制=蓝 改名=青 清除=灰 删除/停止=红） */
+  .pc-acts .btn,.iso-acts .btn{border-color:transparent;color:#fff;box-shadow:none;
+    background:linear-gradient(180deg,#7B8798,#5A6779)}
+  .pc-acts .btn[data-act="copy"],.pc-acts .btn[data-act="hash"],
+  .pc-acts .btn[data-act="start"],.pc-acts .btn.primary,
+  .iso-acts .btn[data-act="copy"],.iso-acts .btn[data-act="hash"],
+  .iso-acts .btn[data-act="start"],.iso-acts .btn.primary{
+    background:linear-gradient(180deg,#5B8CFF,#3B6BF5);box-shadow:0 2px 6px rgba(59,107,245,.26)}
+  .pc-acts .btn[data-act="rename"],.iso-acts .btn[data-act="rename"]{
+    background:linear-gradient(180deg,#2FB3A8,#0E8C9E);box-shadow:0 2px 6px rgba(14,140,158,.22)}
+  .pc-acts .btn[data-act="clear"],.iso-acts .btn[data-act="clear"]{
+    background:linear-gradient(180deg,#7B8798,#5A6779)}
+  .pc-acts .btn[data-act="del"],.pc-acts .btn[data-act="stop"],
+  .iso-acts .btn[data-act="del"],.iso-acts .btn[data-act="stop"]{
+    background:linear-gradient(180deg,#F0577A,#D9455F);box-shadow:0 2px 6px rgba(217,69,95,.24)}
+  .pc-acts .btn:hover,.iso-acts .btn:hover{filter:brightness(1.07)}
+  .pc-acts .btn:disabled,.iso-acts .btn:disabled{opacity:.45;filter:none}
+
   .units{border-top:1px solid var(--line);display:flex;flex-direction:column}
   .unit{display:grid;grid-template-columns:1fr auto auto;gap:14px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line)}
   .unit:last-child{border-bottom:0;padding-bottom:0}
