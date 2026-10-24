@@ -892,7 +892,9 @@ async function openDelete(rec) {
       '<input type="checkbox" data-dk="' + it.key + '"' + (it.exists ? ' checked' : '') + dis + '>' +
       '<div style="flex:1;min-width:0"><div class="dl">' + it.label + '</div>' +
       '<div class="dd">' + it.detail + '</div>' +
-      '<div class="dd" style="color:var(--muted)">' + it.note + '</div></div>' +
+      (it.note && it.note !== it.detail
+        ? '<div class="dd" style="color:var(--muted)">' + it.note + '</div>' : '') +
+      '</div>' +
       '<div class="ds">' + size + '</div></label>';
   }).join('');
   $('#delAck').checked = false;

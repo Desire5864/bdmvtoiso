@@ -1307,19 +1307,30 @@ def _targets_for(name: str, disc: str | None) -> dict:
     """算出「源目录 / ISO 产物」的实际路径（全部经 _safe_name 校验）。"""
     src = _resolved_child_under(DATA_DIR, name, disc) if disc else _resolved_child_under(DATA_DIR, name)
     out_paths: list[Path] = []
+    seen: set[str] = set()
+
+    def _push(p: Path | None) -> None:
+        """按 resolve() 后的真实路径去重，避免同一文件被列两次。"""
+        if not p:
+            return
+        try:
+            rp = p.resolve()
+        except Exception:
+            return
+        if not rp.is_relative_to(OUT_DIR.resolve()) or not rp.is_file():
+            return
+        key = str(rp)
+        if key in seen:
+            return
+        seen.add(key)
+        out_paths.append(rp)
+
     try:
-        iso = _find_best_iso_path(name, disc)
-        if iso:
-            out_paths.append(iso)
+        _push(_find_best_iso_path(name, disc))
     except Exception:
         pass
     for cand in ([OUT_DIR / f"{name}.iso"] if not disc else [OUT_DIR / name / f"{disc}.iso"]):
-        try:
-            rp = cand.resolve()
-            if rp.is_relative_to(OUT_DIR.resolve()) and rp.exists() and rp not in out_paths:
-                out_paths.append(rp)
-        except Exception:
-            pass
+        _push(cand)
     return {"source": src, "out": out_paths}
 
 
@@ -2090,7 +2101,8 @@ def api_delete():
             {
                 "key": "source",
                 "label": "源目录",
-                "note": str(src.relative_to(ROOT)) if src.exists() else "不存在",
+                "note": ("整个目录递归删除 · 移入回收站 data/.trash，保留 %d 天" % TRASH_KEEP_DAYS)
+                        if src.exists() else "不存在",
                 "exists": src.exists(),
                 "detail": str(src.relative_to(ROOT)),
                 "size": _dir_size(src) if src.exists() else 0,
@@ -2098,7 +2110,8 @@ def api_delete():
             {
                 "key": "out",
                 "label": "ISO 产物",
-                "note": "、".join(str(p.relative_to(ROOT)) for p in outs) or "未找到",
+                "note": ("移入回收站 updata/.trash，保留 %d 天" % TRASH_KEEP_DAYS)
+                        if outs else "未找到",
                 "exists": bool(outs),
                 "detail": "、".join(str(p.relative_to(ROOT)) for p in outs),
                 "size": sum(p.stat().st_size for p in outs if p.exists()),
