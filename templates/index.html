@@ -763,8 +763,8 @@ function actionsOf(p, u, compact) {
 
 function ed2kRow(u) {
   if (!u.ed2k) return '';
-  return '<div class="link"><span>' + esc(u.ed2k) + '</span>' +
-    '<button data-act="copy" data-copy="' + esc(u.ed2k) + '">复制</button></div>';
+  // 不再在链接框里放「复制」：右栏已有「复制 ed2k」，重复且占宽度
+  return '<div class="link"><span>' + esc(u.ed2k) + '</span></div>';
 }
 
 function discIcon() {
