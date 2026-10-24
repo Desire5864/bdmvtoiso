@@ -871,13 +871,15 @@ function packCard(p) {
   }
 
   const u = p.units[0];
+  // 标题优先用「ISO 名字」（去掉 .iso）：改名后标题立刻跟着变；
+  // 没有输出时退回源目录名。源目录名始终保留在下面 meta 行里。
+  const isoName = (u.file || '').replace(/\.iso$/i, '');
+  const title = isoName && u.outExists ? isoName : p.name;
   return '<article class="pcard">' +
     '<div class="pc-main">' +
       '<div class="pc-title">' + statusIcon(u) +
-        '<div class="grow"><div class="ttl">' + esc(p.name) + '</div>' +
+        '<div class="grow"><div class="ttl">' + esc(title) + '</div>' +
         '<div class="meta">data/' + esc(p.name) + '</div>' +
-        (u.outRel ? '<div class="isofile" title="' + esc(u.outRel) + '"><b>ISO</b>' +
-           esc(u.outRel.split('/').pop()) + '</div>' : '') +
         '</div></div>' +
       progressBlock(u) + ed2kRow(u) +
     '</div>' +
