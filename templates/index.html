@@ -127,6 +127,10 @@
   /* ---- 单条进度：阶段徽标 + 四段配色 ---- */
   .prow{display:grid;grid-template-columns:38px minmax(0,1fr) 46px;align-items:center;gap:9px}
   .sck{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;margin-top:1px}
+  /* HR 标志：右栏右上角 */
+  .side-top{display:flex;justify-content:flex-end;width:100%;min-height:19px}
+  .hrb{display:inline-flex;align-items:center;height:19px;padding:0 7px;border-radius:5px;
+       background:var(--err-soft);color:var(--err);font-size:10.5px;font-weight:600;letter-spacing:.04em}
   .sck svg{width:21px;height:21px}
   .sck-blue{background:var(--accent-soft);color:var(--accent)}
   .sck-ok{background:var(--ok-soft);color:var(--ok)}
@@ -559,12 +563,13 @@
   "items": [
   {%- for it in items %}
   {"name": {{ it.name|tojson }}, "kind": {{ it.kind|tojson }},
+   "hr": {{ 'true' if it.hr else 'false' }},
    "outExists": {{ 'true' if it.out_exists else 'false' }},
    "outBytes": {% if it.out_iso_bytes is not none %}{{ it.out_iso_bytes }}{% else %}null{% endif %},
    "outRel": {{ (it.out_iso_rel or '')|tojson }},
    "ed2k": {{ (it.ed2k or '')|tojson }},
    "job": {% if it.job %}{"status": {{ it.job.status|tojson }}, "progress": {{ it.job.progress or 0 }}, "written": {{ it.job.written_bytes or 0 }}, "total": {{ it.job.total_bytes or 0 }}, "detail": {{ (it.job.detail or '')|tojson }}, "lastOutput": {{ (it.job.last_output or '')|tojson }}}{% else %}null{% endif %},
-   "discs": [{% for d in it.discs %}{"name": {{ d.disc|tojson }}, "outExists": {{ 'true' if d.out_exists else 'false' }}, "outBytes": {% if d.out_iso_bytes is not none %}{{ d.out_iso_bytes }}{% else %}null{% endif %}, "outRel": {{ (d.out_iso_rel or '')|tojson }}, "ed2k": {{ (d.ed2k or '')|tojson }}, "job": {% if d.job %}{"status": {{ d.job.status|tojson }}, "progress": {{ d.job.progress or 0 }}, "written": {{ d.job.written_bytes or 0 }}, "total": {{ d.job.total_bytes or 0 }}, "detail": {{ (d.job.detail or '')|tojson }}, "lastOutput": {{ (d.job.last_output or '')|tojson }}}{% else %}null{% endif %}}{% if not loop.last %},{% endif %}{% endfor %}]
+   "discs": [{% for d in it.discs %}{"name": {{ d.disc|tojson }}, "hr": {{ 'true' if d.hr else 'false' }}, "outExists": {{ 'true' if d.out_exists else 'false' }}, "outBytes": {% if d.out_iso_bytes is not none %}{{ d.out_iso_bytes }}{% else %}null{% endif %}, "outRel": {{ (d.out_iso_rel or '')|tojson }}, "ed2k": {{ (d.ed2k or '')|tojson }}, "job": {% if d.job %}{"status": {{ d.job.status|tojson }}, "progress": {{ d.job.progress or 0 }}, "written": {{ d.job.written_bytes or 0 }}, "total": {{ d.job.total_bytes or 0 }}, "detail": {{ (d.job.detail or '')|tojson }}, "lastOutput": {{ (d.job.last_output or '')|tojson }}}{% else %}null{% endif %}}{% if not loop.last %},{% endif %}{% endfor %}]
   }{% if not loop.last %},{% endif %}
   {%- endfor %}
   ],
@@ -631,9 +636,11 @@ function addUnit(pack, o, disc) {
     outRel: outRel,
     file: outRel.split('/').pop() || '',
     ed2k: o.ed2k || '',
+    hr: !!o.hr,
     busy: false
   };
   if (!u.total && u.outBytes) u.total = u.outBytes;
+  if (u.hr) pack.hr = true;
   pack.units.push(u);
   ALL.set(u.id, { pack: pack, u: u });
   return u;
@@ -771,6 +778,20 @@ function statusIcon(u) {
   return discIcon();
 }
 
+function boxStatusIcon(p) {
+  const us = p.units || [];
+  if (us.length && us.every(u => u.status === 'done')) {
+    return checkIcon(us.every(u => u.ed2k) ? 'ok' : 'blue');
+  }
+  return boxIcon();
+}
+
+function hrBadge(on) {
+  return '<div class="side-top">' +
+    (on ? '<span class="hrb" title="该种子带 Hit &amp; Run 考核，注意保种">HR</span>' : '') +
+    '</div>';
+}
+
 function boxIcon() {
   return '<svg class="thumb" viewBox="0 0 40 40" fill="none" aria-hidden="true">' +
     '<rect x="5" y="14" width="24" height="19" rx="3" stroke="currentColor" stroke-opacity=".3"/>' +
@@ -785,7 +806,7 @@ function packVolume(u) {
 
 function packSide(u, acts, override) {
   const vol = override || packVolume(u);
-  return '<div class="pc-side">' +
+  return '<div class="pc-side">' + hrBadge(u.hr) +
     '<div class="iso-size">' + vol.size + '<small>' + vol.label + '</small></div>' +
     chipOf(u) +
     '<div class="pc-acts">' + acts + '</div></div>';
@@ -828,12 +849,12 @@ function packCard(p) {
     const allDone = done === p.units.length;
     return '<article class="pcard">' +
       '<div class="pc-main">' +
-        '<div class="pc-title">' + boxIcon() +
+        '<div class="pc-title">' + boxStatusIcon(p) +
           '<div class="grow"><div class="ttl">' + esc(p.name) + '</div>' +
           '<div class="meta">合集 · ' + p.units.length + ' 张碟 · data/' + esc(p.name) + '</div></div></div>' +
         '<div class="units">' + rows + '</div>' +
       '</div>' +
-      '<div class="pc-side">' +
+      '<div class="pc-side">' + hrBadge(p.hr) +
         '<div class="iso-size">' + (bytes ? fmtGB(bytes) : '—') + '<small>已出 ISO 合计</small></div>' +
         '<span class="chip ' + (allDone ? 'done' : 'idle') + '">' + done + '/' + p.units.length + ' 已完成</span>' +
         '<div class="pc-acts">' +

@@ -1289,6 +1289,36 @@ def _qb_match(torrents: list[dict], names: list[str]) -> list[dict]:
     return [t for t in torrents if str(t.get("name") or "").strip() in want]
 
 
+# HR（Hit & Run）标记：只认 qB 种子标签，标签去掉空格/连字符/& 后比对
+HR_TAG_KEYS = ("hr", "hitrun", "hitandrun")
+HR_CACHE_TTL = 60.0
+_HR_CACHE: dict = {"ts": 0.0, "names": set()}
+
+
+def _qb_hr_names() -> set:
+    """从 qB 种子标签里挑出带 HR 考核的种子名（带 60s 缓存）。"""
+    now = time.time()
+    if now - float(_HR_CACHE.get("ts") or 0) < HR_CACHE_TTL:
+        return _HR_CACHE["names"]
+    names: set = set()
+    try:
+        cookie = _qb_login()
+        for t in _qb_torrents(cookie):
+            raw = str(t.get("tags") or "")
+            for tag in raw.split(","):
+                k = tag.strip().lower().replace(" ", "").replace("-", "").replace("&", "")
+                if k in HR_TAG_KEYS:
+                    nm = str(t.get("name") or "").strip()
+                    if nm:
+                        names.add(nm)
+                    break
+    except Exception:
+        pass
+    _HR_CACHE["ts"] = now
+    _HR_CACHE["names"] = names
+    return names
+
+
 def _dir_size(path: Path) -> int:
     total = 0
     try:
@@ -1664,6 +1694,7 @@ def _scan_data_items() -> list[dict]:
     _prune_iso_ed2k_db_missing_files()
 
     items: list[dict] = []
+    hr_names = _qb_hr_names()
     _prune_trash()
     # 跳过 .trash 这类隐藏目录，别把它们当成待打包资源
     for p in sorted([x for x in DATA_DIR.iterdir() if x.is_dir() and not x.name.startswith(".")],
@@ -1691,6 +1722,7 @@ def _scan_data_items() -> list[dict]:
                 {
                     "name": name,
                     "kind": "disc",
+                    "hr": name in hr_names,
                     "is_bdmv": True,
                     "out_exists": out_iso.exists(),
                     "job": job,
@@ -1728,6 +1760,7 @@ def _scan_data_items() -> list[dict]:
                     {
                         "disc": d.name,
                         "is_bdmv": True,
+                        "hr": d.name in hr_names,
                         "out_exists": out_iso.exists(),
                         "job": job,
                         "out_iso_rel": out_iso_rel,
@@ -1741,6 +1774,7 @@ def _scan_data_items() -> list[dict]:
                     "name": name,
                     "kind": "box",
                     "is_bdmv": True,
+                    "hr": any(x.get("hr") for x in disc_rows),
                     "out_exists": all(x["out_exists"] for x in disc_rows) and len(disc_rows) > 0,
                     "job": None,
                     "discs": disc_rows,
@@ -1752,6 +1786,7 @@ def _scan_data_items() -> list[dict]:
                     "name": name,
                     "kind": "unknown",
                     "is_bdmv": False,
+                    "hr": False,
                     "out_exists": False,
                     "job": None,
                     "ed2k": None,
