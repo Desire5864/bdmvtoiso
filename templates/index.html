@@ -20,6 +20,7 @@
     --ok:#3DDC97; --ok-soft:rgba(61,220,151,.13);
     --warn:#E9B055; --err:#FF7085; --err-soft:rgba(255,112,133,.13);
     --warn-soft:rgba(233,176,85,.14); --hash:#E9B055; --hash-2:#FFD08A;
+    --teal:#2FC6D8; --teal-2:#7FE3EE;
   }
   html[data-theme="light"]{
     --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#EDF0F5; --rail:#FFFFFF;
@@ -29,6 +30,7 @@
     --ok:#12996A; --ok-soft:rgba(18,153,106,.10);
     --warn:#A9711A; --err:#D9455F; --err-soft:rgba(217,69,95,.10);
     --warn-soft:rgba(233,176,85,.20); --hash:#B4761B; --hash-2:#E0A447;
+    --teal:#0E8C9E; --teal-2:#2FC6D8;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -114,6 +116,22 @@
   .bar.run i{background:linear-gradient(90deg,var(--accent),var(--accent-2))}
   .bar.done i{background:var(--ok)}
   .bar.mini{height:4px;margin-top:6px;max-width:260px}
+  /* ---- 单条进度：阶段徽标 + 四段配色 ---- */
+  .prow{display:grid;grid-template-columns:38px minmax(0,1fr) 46px;align-items:center;gap:9px}
+  .prow .badge{display:inline-flex;align-items:center;justify-content:center;height:18px;border-radius:5px;
+               font-size:10.5px;letter-spacing:.02em;background:var(--surface-2);color:var(--muted);white-space:nowrap}
+  .prow .badge.pack{background:var(--accent-soft);color:var(--accent)}
+  .prow .badge.hash{background:var(--warn-soft);color:var(--warn)}
+  .prow .badge.done{background:var(--ok-soft);color:var(--ok)}
+  .prow .bar{height:7px}
+  .prow .pct{font:11.5px var(--mono);color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+  .prow .pct.teal-c{color:var(--teal)}
+  .prow .pct.hash-c{color:var(--warn)}
+  .prow .pct.done-c{color:var(--ok)}
+  .bar.blue i{background:linear-gradient(90deg,#3B6BF5,#5B8CFF)}
+  .bar.teal i{background:linear-gradient(90deg,var(--teal),var(--teal-2))}
+  .bar.ash i{background:var(--ok)}
+  .pmeta{margin-left:47px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 
   .chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:11.5px;white-space:nowrap;flex:none}
   .chip.idle{background:var(--surface-2);color:var(--muted)}
@@ -609,7 +627,7 @@ const matches = p => !state.q || p.name.toLowerCase().includes(state.q.toLowerCa
   p.units.some(u => (u.label || '').toLowerCase().includes(state.q.toLowerCase()));
 
 function chipOf(u) {
-  if (u.status === 'hashing' || u.busy) return '<span class="chip run"><i class="dot"></i>算 ed2k</span>';
+  if (u.status === 'hashing' || u.busy) return '<span class="chip hash"><i class="dot"></i>ed2k 生成中</span>';
   if (u.status === 'running') return '<span class="chip run"><i class="dot"></i>打包中</span>';
   if (u.status === 'done') return '<span class="chip done">已完成</span>';
   if (u.status === 'error') return '<span class="chip err">需处理</span>';
@@ -629,14 +647,54 @@ function progressText(u) {
   return u.outExists ? '磁盘上已有输出' : '源目录已就绪 · 等待打包';
 }
 
+function progInfo(u) {
+  // 一条进度条，两个阶段：
+  //   打包 run → 蓝 / 打包 done → 青 / ed2k run → 琥珀 / ed2k done → 绿
+  const p = Math.max(0, Math.min(1, u.progress || 0));
+  if (u.status === 'hashing' || u.busy) {
+    return { stage: 'hash-run', pct: p * 100, pctTxt: Math.round(p * 100) + '%',
+             meta: '分块校验 · 9500 KB / block' };
+  }
+  if (u.ed2k && (u.status === 'done' || u.status === 'idle')) {
+    return { stage: 'hash-done', pct: 100, pctTxt: '100%', meta: '分块校验完成 · ed2k 已生成' };
+  }
+  if (u.status === 'done') {
+    return { stage: 'pack-done', pct: 100, pctTxt: '100%', meta: 'ISO 已就绪 · ed2k 未生成' };
+  }
+  if (u.status === 'running') {
+    const bits = [];
+    if (u.total) bits.push(fmtGB(u.total * p) + ' / ' + fmtGB(u.total));
+    if (u.detail) bits.push(u.detail);
+    return { stage: 'pack-run', pct: p * 100, pctTxt: (p * 100).toFixed(1) + '%', meta: bits.join(' · ') };
+  }
+  if (u.status === 'error') {
+    return { stage: 'error', pct: 0, pctTxt: '—',
+             meta: u.detail || '上次任务失败，输出可能已存在' };
+  }
+  return u.outExists
+    ? { stage: 'pack-done', pct: 100, pctTxt: '100%', meta: '磁盘上已有输出 · ed2k 未生成' }
+    : { stage: 'idle', pct: 0, pctTxt: '0%', meta: '源目录已就绪 · 等待打包' };
+}
+
+const PROG_SKIN = {
+  'pack-run':  ['打包', 'pack', 'blue', ''],
+  'pack-done': ['打包', 'pack', 'teal', 'teal-c'],
+  'hash-run':  ['ed2k', 'hash', 'hash', 'hash-c'],
+  'hash-done': ['ed2k ✓', 'done', 'ash', 'done-c'],
+  'error':     ['打包', 'pack', '', ''],
+  'idle':      ['打包', 'pack', '', '']
+};
+
 function progressBlock(u) {
-  const active = u.status === 'running' || u.status === 'hashing' || u.busy;
-  const cls = u.status === 'done' ? 'done' : (active ? 'run' : '');
-  const w = (u.status === 'done' ? 100 : u.progress * 100).toFixed(2);
-  return '<div class="prog">' +
-    '<div class="prog-top"><span data-pt="' + u.id + '">' + progressText(u) + '</span></div>' +
-    '<div class="bar ' + cls + '"><i data-pb="' + u.id + '" style="width:' + w + '%"></i></div>' +
-    '</div>';
+  const info = progInfo(u);
+  const skin = PROG_SKIN[info.stage] || PROG_SKIN.idle;
+  return '<div class="prow">' +
+      '<span class="badge ' + skin[1] + '">' + skin[0] + '</span>' +
+      '<div class="bar ' + skin[2] + '"><i data-pb="' + u.id + '" style="width:' +
+        info.pct.toFixed(2) + '%"></i></div>' +
+      '<span class="pct ' + skin[3] + '" data-pt="' + u.id + '">' + info.pctTxt + '</span>' +
+    '</div>' +
+    '<div class="pmeta" data-pm="' + u.id + '">' + esc(info.meta) + '</div>';
 }
 
 function actionsOf(p, u, compact) {
@@ -721,7 +779,7 @@ function packCard(p) {
       '<div class="unit">' +
         '<div class="u-main"><div class="u-name">' + esc(u.label || '') + '</div>' +
           (u.status === 'running' || u.busy
-            ? '<div class="bar mini run"><i data-pb="' + u.id + '" style="width:' + (u.progress * 100).toFixed(2) + '%"></i></div>' +
+            ? '<div class="bar mini ' + (u.busy ? 'hash' : 'run') + '"><i data-pb="' + u.id + '" style="width:' + (u.progress * 100).toFixed(2) + '%"></i></div>' +
               '<div class="meta"><span data-pct="' + u.id + '">' + Math.round(u.progress * 100) + '%</span></div>'
             : '<div class="meta">' + (u.outBytes ? fmtGB(u.outBytes) : '源目录 · 未扫描') + '</div>') +
         '</div>' +
@@ -921,8 +979,11 @@ function paintProgress() {
   units().forEach(u => {
     const pb = document.querySelector('[data-pb="' + u.id + '"]');
     const pt = document.querySelector('[data-pt="' + u.id + '"]');
-    if (pb) pb.style.width = (u.status === 'done' ? 100 : u.progress * 100).toFixed(2) + '%';
-    if (pt) pt.innerHTML = progressText(u);
+    const info = progInfo(u);
+    if (pb) pb.style.width = info.pct.toFixed(2) + '%';
+    if (pt) pt.textContent = info.pctTxt;
+    const pm = document.querySelector('[data-pm="' + u.id + '"]');
+    if (pm) pm.textContent = info.meta;
     const pc = document.querySelector('[data-pct="' + u.id + '"]');
     if (pc) pc.textContent = Math.round((u.status === 'done' ? 1 : u.progress) * 100) + '%';
   });
