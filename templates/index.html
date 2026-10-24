@@ -115,6 +115,9 @@
   .thumb{width:38px;height:38px;flex:none;color:var(--accent);opacity:.85;margin-top:1px}
   .ttl{font-size:14px;font-weight:600;line-height:1.4;word-break:break-word}
   .meta{font:11.5px/1.5 var(--mono);color:var(--muted);margin-top:3px;word-break:break-all}
+  .isofile{font:11.5px/1.5 var(--mono);color:var(--text);margin-top:4px;opacity:.75;
+           white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .isofile b{font-weight:500;color:var(--muted);margin-right:5px}
 
   .prog{display:flex;flex-direction:column;gap:6px}
   .prog-top{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -841,7 +844,8 @@ function packCard(p) {
           (u.status === 'running' || u.busy
             ? '<div class="bar mini ' + (u.busy ? 'hash' : 'run') + '"><i data-pb="' + u.id + '" style="width:' + (u.progress * 100).toFixed(2) + '%"></i></div>' +
               '<div class="meta"><span data-pct="' + u.id + '">' + Math.round(u.progress * 100) + '%</span></div>'
-            : '<div class="meta">' + (u.outBytes ? fmtGB(u.outBytes) : '源目录 · 未扫描') + '</div>') +
+            : '<div class="meta">' + (u.outBytes ? fmtGB(u.outBytes) : '源目录 · 未扫描') +
+              (u.outRel ? '<div class="isofile" title="' + esc(u.outRel) + '">' + esc(u.outRel.split('/').pop()) + '</div>' : '') + '</div>') +
         '</div>' +
         '<div>' + chipOf(u) + '</div>' +
         '<div class="u-right">' + actionsOf(p, u, true) + '</div>' +
@@ -870,7 +874,10 @@ function packCard(p) {
     '<div class="pc-main">' +
       '<div class="pc-title">' + statusIcon(u) +
         '<div class="grow"><div class="ttl">' + esc(p.name) + '</div>' +
-        '<div class="meta">data/' + esc(p.name) + '</div></div></div>' +
+        '<div class="meta">data/' + esc(p.name) + '</div>' +
+        (u.outRel ? '<div class="isofile" title="' + esc(u.outRel) + '"><b>ISO</b>' +
+           esc(u.outRel.split('/').pop()) + '</div>' : '') +
+        '</div></div>' +
       progressBlock(u) + ed2kRow(u) +
     '</div>' +
     packSide(u, actionsOf(p, u, true)) +
@@ -1349,7 +1356,7 @@ $('#renameForm').addEventListener('submit', async e => {
       await postJSON('/api/rename_iso', { name: rec.pack.name, disc: rec.u.disc || null, new_name: name });
     }
     $('#mask').hidden = true;
-    toast('已重命名，正在刷新…');
+    toast('已重命名为「' + name + '」，正在刷新…');
     setTimeout(() => location.reload(), 500);
   } catch (err) {
     toast('改名失败：' + err.message);
