@@ -2136,8 +2136,7 @@ def api_delete():
             {
                 "key": "source",
                 "label": "源目录",
-                "note": ("整个目录递归删除 · 移入回收站 data/.trash，保留 %d 天" % TRASH_KEEP_DAYS)
-                        if src.exists() else "不存在",
+                "note": "整个目录递归删除 · 不可恢复" if src.exists() else "不存在",
                 "exists": src.exists(),
                 "detail": str(src.relative_to(ROOT)),
                 "size": _dir_size(src) if src.exists() else 0,
@@ -2145,8 +2144,7 @@ def api_delete():
             {
                 "key": "out",
                 "label": "ISO 产物",
-                "note": ("移入回收站 updata/.trash，保留 %d 天" % TRASH_KEEP_DAYS)
-                        if outs else "未找到",
+                "note": "文件删除 · 不可恢复" if outs else "未找到",
                 "exists": bool(outs),
                 "detail": "、".join(str(p.relative_to(ROOT)) for p in outs),
                 "size": sum(p.stat().st_size for p in outs if p.exists()),
@@ -2171,15 +2169,14 @@ def api_delete():
             except Exception as exc:
                 errors.append("种子删除失败：" + str(exc))
 
-    # 软删除：先 rename 进回收站（同卷，瞬间完成），确认后才算「已删」。
-    # 真要腾空间就等 _prune_trash 按保留期清，或手工清 .trash。
+    # 直接删除（不进回收站）：用户明确要求删除即释放空间。
+    # 安全边界：必须落在 DATA_DIR 之内、且不能是 DATA_DIR 本身。
     if "source" in want and src.exists():
         try:
             if not src.resolve().is_relative_to(DATA_DIR.resolve()) or src.resolve() == DATA_DIR.resolve():
                 raise RuntimeError("路径越界，已拒绝")
-            dst = _trash_slot(DATA_TRASH) / src.name
-            shutil.move(str(src), str(dst))
-            done.append("源目录已移入回收站 data/.trash/%s" % dst.parent.name)
+            shutil.rmtree(src)
+            done.append("源目录已删除")
         except Exception as exc:
             errors.append("源目录删除失败：" + str(exc))
 
@@ -2188,13 +2185,12 @@ def api_delete():
         for p in outs:
             try:
                 if p.resolve().is_relative_to(OUT_DIR.resolve()) and p.is_file():
-                    dst = _trash_slot(OUT_TRASH) / p.name
-                    shutil.move(str(p), str(dst))
+                    p.unlink()
                     moved += 1
             except Exception as exc:
                 errors.append("ISO 删除失败：" + str(exc))
         if moved:
-            done.append("ISO %d 个已移入回收站 updata/.trash（保留 %d 天）" % (moved, TRASH_KEEP_DAYS))
+            done.append("ISO %d 个已删除" % moved)
 
     # 清掉对应的 ed2k 缓存与任务记录
     try:
