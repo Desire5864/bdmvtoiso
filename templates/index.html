@@ -21,6 +21,10 @@
     --warn:#E9B055; --err:#FF7085; --err-soft:rgba(255,112,133,.13);
     --warn-soft:rgba(233,176,85,.14); --hash:#E9B055; --hash-2:#FFD08A;
     --teal:#2FC6D8; --teal-2:#7FE3EE;
+    /* 按钮：柔光皮肤（暗色） */
+    --btn-bg:rgba(255,255,255,.06); --btn-bd:rgba(255,255,255,.10); --btn-bg-h:rgba(255,255,255,.11);
+    --btn-sh:0 1px 2px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.07);
+    --btn-dg-bg:rgba(217,69,95,.16); --btn-dg-bd:rgba(217,69,95,.30); --btn-dg-bg-h:rgba(217,69,95,.26);
   }
   html[data-theme="light"]{
     --bg:#F5F6F8; --surface:#FFFFFF; --surface-2:#EDF0F5; --rail:#FFFFFF;
@@ -31,6 +35,10 @@
     --warn:#A9711A; --err:#D9455F; --err-soft:rgba(217,69,95,.10);
     --warn-soft:rgba(233,176,85,.20); --hash:#B4761B; --hash-2:#E0A447;
     --teal:#0E8C9E; --teal-2:#2FC6D8;
+    /* 按钮：柔光皮肤（亮色） */
+    --btn-bg:#F4F6F9; --btn-bd:#E6EBF2; --btn-bg-h:#EFF3F8;
+    --btn-sh:0 1px 2px rgba(15,23,42,.05), inset 0 1px 0 #fff;
+    --btn-dg-bg:#FDF1F3; --btn-dg-bd:#F3D8DE; --btn-dg-bg-h:#FBE5EA;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -142,17 +150,30 @@
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.2}}
 
   .actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
-  .btn{display:inline-flex;align-items:center;gap:6px;height:31px;padding:0 11px;border-radius:8px;font-size:12.5px;border:1px solid var(--line);color:var(--text);transition:.15s;white-space:nowrap}
-  .btn:hover{background:var(--surface-2)}
+  /* ---- B 柔光：浅底 + 内高光 + 微投影 ---- */
+  .btn{display:inline-flex;align-items:center;gap:6px;height:31px;padding:0 11px;border-radius:8px;
+       font-size:12.5px;border:1px solid var(--btn-bd);color:var(--text);transition:.15s;
+       white-space:nowrap;background:var(--btn-bg);box-shadow:var(--btn-sh)}
+  .btn:hover{background:var(--btn-bg-h)}
   .btn svg{width:13px;height:13px}
-  .btn.primary{background:var(--accent);border-color:transparent;color:#fff}
-  .btn.primary:hover{filter:brightness(1.1)}
-  .btn.danger{color:var(--err)}
-  .btn.danger:hover{background:var(--err-soft);border-color:transparent}
+  .btn.primary{background:linear-gradient(180deg,#5B8CFF,#3B6BF5);border-color:#3560DD;color:#fff;
+               box-shadow:0 2px 6px rgba(59,107,245,.28), inset 0 1px 0 rgba(255,255,255,.35)}
+  .btn.primary:hover{filter:none;background:linear-gradient(180deg,#6C97FF,#4574F7)}
+  /* 危险按钮默认「安静」：浅红底 + 红字，和日常操作同重量 */
+  .btn.danger{color:var(--err);background:var(--btn-dg-bg);border-color:var(--btn-dg-bd);
+              box-shadow:0 1px 2px rgba(217,69,95,.06)}
+  .btn.danger:hover{background:var(--btn-dg-bg-h);border-color:var(--btn-dg-bd)}
+  /* 弹窗里的「永久删除」升级为实心红：最后一道闸，需要最高强度 */
+  .modal .btn.danger{background:linear-gradient(180deg,#F0577A,#D9455F);border-color:#C93D55;color:#fff;
+                     box-shadow:0 2px 6px rgba(217,69,95,.26), inset 0 1px 0 rgba(255,255,255,.3)}
+  .modal .btn.danger:hover{background:linear-gradient(180deg,#F26484,#E04A63);filter:none}
+  .modal .btn.danger:disabled{opacity:.55}
   .btn.sm{height:28px;padding:0 9px;font-size:12px}
   .btn:disabled{opacity:.45;cursor:not-allowed}
-  .btn.ghost{border-color:transparent;color:var(--muted)}
+  .btn.ghost{background:transparent;border-color:transparent;box-shadow:none;color:var(--muted)}
   .btn.ghost:hover{color:var(--text);background:var(--surface-2)}
+  .modal .btn.ghost{background:var(--btn-bg);border-color:var(--btn-bd);color:var(--text);
+                    box-shadow:var(--btn-sh)}
 
   .link{display:flex;align-items:flex-start;gap:8px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 8px 8px 10px;font:11px/1.6 var(--mono);color:var(--muted)}
   .link span{flex:1;min-width:0;white-space:normal;word-break:break-all;overflow-wrap:anywhere}
