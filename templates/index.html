@@ -126,6 +126,10 @@
   .bar.mini{height:4px;margin-top:6px;max-width:260px}
   /* ---- 单条进度：阶段徽标 + 四段配色 ---- */
   .prow{display:grid;grid-template-columns:38px minmax(0,1fr) 46px;align-items:center;gap:9px}
+  .sck{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;margin-top:1px}
+  .sck svg{width:21px;height:21px}
+  .sck-blue{background:var(--accent-soft);color:var(--accent)}
+  .sck-ok{background:var(--ok-soft);color:var(--ok)}
   .prow .badge{display:inline-flex;align-items:center;justify-content:center;height:18px;border-radius:5px;
                font-size:10.5px;letter-spacing:.02em;background:var(--surface-2);color:var(--muted);white-space:nowrap}
   .prow .badge.pack{background:var(--accent-soft);color:var(--accent)}
@@ -754,6 +758,19 @@ function discIcon() {
     '<path d="M20 2a18 18 0 0 1 15.6 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
     '<circle cx="20" cy="20" r="4.2" fill="currentColor"/></svg>';
 }
+function checkIcon(kind) {
+  // kind: 'blue'（打包完成）/ 'ok'（ed2k 已生成）
+  return '<span class="sck sck-' + kind + '" aria-hidden="true">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" ' +
+    'stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.6l4.6 4.6L19 7.8"/></svg>' +
+    '</span>';
+}
+
+function statusIcon(u) {
+  if (u && u.status === 'done') return checkIcon(u.ed2k ? 'ok' : 'blue');
+  return discIcon();
+}
+
 function boxIcon() {
   return '<svg class="thumb" viewBox="0 0 40 40" fill="none" aria-hidden="true">' +
     '<rect x="5" y="14" width="24" height="19" rx="3" stroke="currentColor" stroke-opacity=".3"/>' +
@@ -829,7 +846,7 @@ function packCard(p) {
   const u = p.units[0];
   return '<article class="pcard">' +
     '<div class="pc-main">' +
-      '<div class="pc-title">' + discIcon() +
+      '<div class="pc-title">' + statusIcon(u) +
         '<div class="grow"><div class="ttl">' + esc(p.name) + '</div>' +
         '<div class="meta">data/' + esc(p.name) + '</div></div></div>' +
       progressBlock(u) + ed2kRow(u) +
