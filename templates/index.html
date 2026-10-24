@@ -132,8 +132,9 @@
   .prow{display:grid;grid-template-columns:38px minmax(0,1fr) 46px;align-items:center;gap:9px}
   .sck{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;margin-top:1px}
   /* HR 标志：右栏右上角 */
-  .side-top{display:flex;justify-content:flex-end;width:100%;min-height:19px}
-  .hrb{display:inline-flex;align-items:center;height:21px;padding:0 8px;border-radius:5px;
+  .side-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;width:100%;min-height:19px}
+  .side-note{font-size:11px;line-height:1.45;color:var(--muted);flex:1;min-width:0;text-align:left;word-break:break-word}
+  .hrb{flex:none;display:inline-flex;align-items:center;height:21px;padding:0 8px;border-radius:5px;
        background:var(--err-soft);color:var(--err);font-size:11.5px;font-weight:650;letter-spacing:.06em;
        box-shadow:inset 0 0 0 1px rgba(217,69,95,.26)}
   .sck svg{width:21px;height:21px}
@@ -730,8 +731,7 @@ function progressBlock(u) {
       '<div class="bar ' + skin[2] + '"><i data-pb="' + u.id + '" style="width:' +
         info.pct.toFixed(2) + '%"></i></div>' +
       '<span class="pct ' + skin[3] + '" data-pt="' + u.id + '">' + info.pctTxt + '</span>' +
-    '</div>' +
-    '<div class="pmeta" data-pm="' + u.id + '">' + esc(info.meta) + '</div>';
+    '</div>';
 }
 
 function actionsOf(p, u, compact) {
@@ -791,10 +791,12 @@ function boxStatusIcon(p) {
   return boxIcon();
 }
 
+function hrChip(on) {
+  return on ? '<span class="hrb" title="该种子带 Hit &amp; Run 考核，注意保种">HR</span>' : '';
+}
+
 function hrBadge(on) {
-  return '<div class="side-top">' +
-    (on ? '<span class="hrb" title="该种子带 Hit &amp; Run 考核，注意保种">HR</span>' : '') +
-    '</div>';
+  return '<div class="side-top">' + hrChip(on) + '</div>';
 }
 
 function boxIcon() {
@@ -811,7 +813,12 @@ function packVolume(u) {
 
 function packSide(u, acts, override) {
   const vol = override || packVolume(u);
-  return '<div class="pc-side">' + hrBadge(u.hr) +
+  const note = progInfo(u).meta;
+  return '<div class="pc-side">' +
+    '<div class="side-top">' +
+      '<span class="side-note" data-pm="' + u.id + '">' + esc(note) + '</span>' +
+      hrChip(u.hr) +
+    '</div>' +
     '<div class="iso-size">' + vol.size + '<small>' + vol.label + '</small></div>' +
     chipOf(u) +
     '<div class="pc-acts">' + acts + '</div></div>';
@@ -853,6 +860,7 @@ function packCard(p) {
       '</div>').join('');
 
     const allDone = done === p.units.length;
+    const everyEd2k = p.units.every(u => !!u.ed2k);
     return '<article class="pcard">' +
       '<div class="pc-main">' +
         '<div class="pc-title">' + boxStatusIcon(p) +
@@ -860,7 +868,11 @@ function packCard(p) {
           '<div class="meta">合集 · ' + p.units.length + ' 张碟 · data/' + esc(p.name) + '</div></div></div>' +
         '<div class="units">' + rows + '</div>' +
       '</div>' +
-      '<div class="pc-side">' + hrBadge(p.hr) +
+      '<div class="pc-side">' +
+        '<div class="side-top">' +
+          '<span class="side-note">' + (allDone ? (everyEd2k ? '全部完成 · ed2k 已生成' : '打包完成 · 待算 ed2k') : done + '/' + p.units.length + ' 张已打包') + '</span>' +
+          hrChip(p.hr) +
+        '</div>' +
         '<div class="iso-size">' + (bytes ? fmtGB(bytes) : '—') + '<small>已出 ISO 合计</small></div>' +
         '<span class="chip ' + (allDone ? 'done' : 'idle') + '">' + done + '/' + p.units.length + ' 已完成</span>' +
         '<div class="pc-acts">' +
