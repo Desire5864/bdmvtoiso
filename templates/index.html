@@ -430,7 +430,7 @@
       <div class="page-head">
         <div>
           <h1>打包工作台</h1>
-          <p class="sub">源目录 <code>data/</code> · 产物 <code>updata/</code> · 自动识别 BDMV / 合集</p>
+          <p class="sub">{% if lib_mode %}库目录 · 按内容自动识别 BDMV 与 ISO{% else %}源目录 <code>data/</code>{% endif %} · 产物 <code>updata/</code> · 自动识别 BDMV / 合集</p>
         </div>
         <div class="actions">
           <button class="btn" data-act="rescan">
@@ -464,7 +464,7 @@
       <div class="page-head">
         <div>
           <h1>ISO 库</h1>
-          <p class="sub"><code>iso/</code> 下的全部镜像 · ed2k 结果缓存于 <code>config/*.json</code></p>
+          <p class="sub">{% if lib_mode %}库内全部 <code>.iso</code>{% else %}<code>iso/</code> 下的全部镜像{% endif %} · ed2k 结果缓存于 <code>config/*.json</code></p>
         </div>
         <div class="actions">
           <button class="btn" data-act="hashall">批量计算 ed2k</button>
@@ -594,6 +594,7 @@
   "items": [
   {%- for it in items %}
   {"name": {{ it.name|tojson }}, "kind": {{ it.kind|tojson }},
+   "srcRel": {{ (it.src_rel or '')|tojson }},
    "hr": {{ 'true' if it.hr else 'false' }},
    "outExists": {{ 'true' if it.out_exists else 'false' }},
    "outBytes": {% if it.out_iso_bytes is not none %}{{ it.out_iso_bytes }}{% else %}null{% endif %},
@@ -662,6 +663,7 @@ function addUnit(pack, o, disc) {
     total: j ? j.total : 0,
     detail: j ? j.detail : '',
     lastOutput: j ? j.lastOutput : '',
+    srcRel: o.srcRel || '',
     outExists: !!o.outExists,
     outBytes: Number(o.outBytes || 0),
     outRel: outRel,
@@ -916,7 +918,7 @@ function packCard(p) {
     '<div class="pc-main">' +
       '<div class="pc-title">' + statusIcon(u) +
         '<div class="grow"><div class="ttl">' + esc(title) + '</div>' +
-        '<div class="meta">data/' + esc(p.name) + '</div>' +
+        '<div class="meta">' + esc(u.srcRel || ('data/' + p.name)) + '</div>' +
         '</div></div>' +
       progressBlock(u) + ed2kRow(u) +
     '</div>' +

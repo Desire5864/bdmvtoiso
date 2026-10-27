@@ -34,9 +34,14 @@ except Exception:
 
 
 ROOT = Path(__file__).resolve().parent
-DATA_DIR = ROOT / "data"
+# 合并库模式：设置环境变量 LIB_DIR 后，源盘与 ISO 库共用一个根目录，
+# 由程序按内容判断（含 BDMV/ 的目录 = 待打包资源，*.iso = 镜像库）。
+# 不设 LIB_DIR 时保持旧的 data/ + iso/ 双目录行为。
+_LIB_ENV = (os.environ.get("LIB_DIR") or "").strip()
+LIB_DIR = Path(_LIB_ENV) if _LIB_ENV else None
+DATA_DIR = LIB_DIR if LIB_DIR else (ROOT / "data")
+ISO_DIR = LIB_DIR if LIB_DIR else (ROOT / "iso")
 OUT_DIR = ROOT / "updata"
-ISO_DIR = ROOT / "iso"
 CONFIG_DIR = ROOT / "config"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 ED2K_DB_FILE = CONFIG_DIR / "list.json"
@@ -366,8 +371,12 @@ def _iter_iso_files() -> list[Path]:
         # 扩展名大小写不敏感：qB/站点工具导出的镜像常是 `xxx.ISO`，
         # 用 rglob("*.iso") 在 Linux 上会直接把这类文件漏掉（ISO 库显示为空）
         for p in ISO_DIR.rglob("*"):
-            if p.is_file() and p.suffix.lower() == ".iso":
-                found.append(p)
+            if not p.is_file() or p.suffix.lower() != ".iso":
+                continue
+            # 合并库会扫到很深，跳过 .trash 等隐藏目录里的残留
+            if any(part.startswith(".") for part in p.relative_to(ISO_DIR).parts):
+                continue
+            found.append(p)
     except OSError:
         pass
     return sorted(found, key=lambda x: _iso_rel_key(x).lower())
@@ -1333,9 +1342,24 @@ def _dir_size(path: Path) -> int:
     return total
 
 
+def _pack_path(name: str) -> Path:
+    """按资源名定位源目录（合并库模式下它可能在 lib/<分类>/<片名>）。"""
+    if not LIB_DIR:
+        return _resolved_child_under(DATA_DIR, name)
+    for cand in _iter_pack_dirs():
+        if cand.name == name:
+            return cand
+    raise ValueError("资源目录不存在")
+
+
+def _pack_sub(name: str, disc: str) -> Path:
+    """定位合集里的某个碟目录（同样兼容合并库模式）。"""
+    return _resolved_child_under(_pack_path(name), disc)
+
+
 def _targets_for(name: str, disc: str | None) -> dict:
     """算出「源目录 / ISO 产物」的实际路径（全部经 _safe_name 校验）。"""
-    src = _resolved_child_under(DATA_DIR, name, disc) if disc else _resolved_child_under(DATA_DIR, name)
+    src = _pack_sub(name, disc) if disc else _pack_path(name)
     out_paths: list[Path] = []
     seen: set[str] = set()
 
@@ -1577,14 +1601,14 @@ def webhook_qb():
 
         try:
             if disc is None:
-                base_dir = _resolved_child_under(DATA_DIR, box)
+                base_dir = _pack_path(box)
                 if not base_dir.is_dir() or not _is_bdmv_root(base_dir):
                     return
                 out_iso = _resolved_child_under(OUT_DIR, f"{box}.iso")
                 key = _job_key(box)
                 src_dir = base_dir
             else:
-                src_dir = _resolved_child_under(DATA_DIR, box, disc)
+                src_dir = _pack_sub(box, disc)
                 if not src_dir.is_dir() or not _is_bdmv_root(src_dir):
                     return
                 out_iso = _resolved_child_under(OUT_DIR, box, f"{disc}.iso")
@@ -1639,7 +1663,7 @@ def webhook_qb():
             name2 = ""
         if name2:
             try:
-                base_dir = _resolved_child_under(DATA_DIR, name2)
+                base_dir = _pack_path(name2)
             except Exception:
                 base_dir = None
             if base_dir and isinstance(base_dir, Path) and base_dir.is_dir():
@@ -1681,6 +1705,39 @@ def webhook_qb_last():
         return jsonify({"ok": False, "error": str(e), "last": None}), 500
 
 
+def _iter_pack_dirs() -> list[Path]:
+    """列出待打包的资源目录（单碟或合集）。
+
+    旧模式（未设 LIB_DIR）：DATA_DIR 下的一层子目录，语义与以前完全一致。
+    合并库模式：根下第一层视为「分类目录」（原盘/、下载/…），不判为合集；
+    资源在第二层 —— 本身是 BDMV 根 → 单碟，其子目录是 BDMV 根 → 合集。
+    """
+    def visible(x: Path) -> bool:
+        return x.is_dir() and not x.name.startswith(".")
+
+    if not LIB_DIR:
+        return sorted([x for x in DATA_DIR.iterdir() if visible(x)], key=lambda x: x.name.lower())
+
+    out: list[Path] = []
+    for top in sorted([x for x in LIB_DIR.iterdir() if visible(x)], key=lambda x: x.name.lower()):
+        if _is_bdmv_root(top):
+            out.append(top)
+            continue
+        for sub in sorted([x for x in top.iterdir() if visible(x)], key=lambda x: x.name.lower()):
+            if _is_bdmv_root(sub) or _disc_children(sub):
+                out.append(sub)
+    return out
+
+
+def _src_rel(p: Path) -> str:
+    """资源目录的显示路径：合并库相对库根（原盘/片名），旧模式相对 ROOT（data/片名）。"""
+    base = LIB_DIR if LIB_DIR else ROOT
+    try:
+        return p.resolve().relative_to(base.resolve()).as_posix()
+    except Exception:
+        return p.name
+
+
 def _scan_data_items() -> list[dict]:
     """扫描 data/ 目录并构造资源条目。
 
@@ -1696,9 +1753,8 @@ def _scan_data_items() -> list[dict]:
     items: list[dict] = []
     hr_names = _qb_hr_names()
     _prune_trash()
-    # 跳过 .trash 这类隐藏目录，别把它们当成待打包资源
-    for p in sorted([x for x in DATA_DIR.iterdir() if x.is_dir() and not x.name.startswith(".")],
-                    key=lambda x: x.name.lower()):
+    # 合并库模式由 _iter_pack_dirs 负责跳过 .trash 与纯 ISO 目录
+    for p in _iter_pack_dirs():
         name = p.name
         if _is_bdmv_root(p):
             out_iso = _find_best_iso_path(name, None) or (OUT_DIR / f"{name}.iso")
@@ -1722,6 +1778,7 @@ def _scan_data_items() -> list[dict]:
                 {
                     "name": name,
                     "kind": "disc",
+                    "src_rel": _src_rel(p),
                     "hr": name in hr_names,
                     "is_bdmv": True,
                     "out_exists": out_iso.exists(),
@@ -1773,6 +1830,7 @@ def _scan_data_items() -> list[dict]:
                 {
                     "name": name,
                     "kind": "box",
+                    "src_rel": _src_rel(p),
                     "is_bdmv": True,
                     "hr": any(x.get("hr") for x in disc_rows),
                     "out_exists": all(x["out_exists"] for x in disc_rows) and len(disc_rows) > 0,
@@ -1785,6 +1843,7 @@ def _scan_data_items() -> list[dict]:
                 {
                     "name": name,
                     "kind": "unknown",
+                    "src_rel": _src_rel(p),
                     "is_bdmv": False,
                     "hr": False,
                     "out_exists": False,
@@ -1824,6 +1883,7 @@ def index():
         "index.html",
         items=items,
         iso_items=iso_items,
+        lib_mode=bool(LIB_DIR),
         engine=engine,
         engine_note=engine_note,
         qb_webhook_enabled=_cfg_bool(cfg, CFG_QB_WEBHOOK_ENABLED, False),
@@ -1883,7 +1943,7 @@ def convert():
         abort(400)
 
     try:
-        base_dir = _resolved_child_under(DATA_DIR, name)
+        base_dir = _pack_path(name)
     except ValueError:
         abort(400)
     if not base_dir.is_dir():
@@ -1923,7 +1983,7 @@ def convert():
 
     if disc is not None:
         try:
-            src_dir = _resolved_child_under(DATA_DIR, name, disc)
+            src_dir = _pack_sub(name, disc)
         except ValueError:
             abort(400)
         if not src_dir.is_dir() or not _is_bdmv_root(src_dir):
