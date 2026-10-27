@@ -2335,6 +2335,54 @@ def api_iso_ed2k_status():
     )
 
 
+@app.post("/api/iso_delete")
+def api_iso_delete():
+    """删除 ISO 库里的镜像文件（直接删除，不进回收站）。"""
+    ISO_DIR.mkdir(parents=True, exist_ok=True)
+    payload: dict = {}
+    if request.is_json:
+        data = request.get_json(silent=True)
+        if isinstance(data, dict):
+            payload.update(data)
+    if request.form:
+        payload.update({k: v for k, v in request.form.items()})
+
+    rel = (payload.get("file") or "").strip()
+    try:
+        target = _resolved_iso_path(rel)
+    except ValueError:
+        return jsonify({"ok": False, "error": "目标文件非法"}), 400
+
+    if not target.is_file() or target.suffix.lower() != ".iso":
+        return jsonify({"ok": False, "error": "文件不存在或不是 ISO"}), 404
+
+    size = 0
+    try:
+        size = int(target.stat().st_size)
+    except OSError:
+        pass
+
+    try:
+        target.unlink()
+    except Exception as exc:
+        return jsonify({"ok": False, "error": f"删除失败：{exc}"}), 500
+
+    # 清掉 ed2k 缓存记录
+    try:
+        key = _iso_rel_key(target)
+        with ISO_ED2K_DB_LOCK:
+            db = _load_iso_ed2k_db()
+            items = db.get("items")
+            if isinstance(items, dict) and key in items:
+                items.pop(key, None)
+                db["items"] = items
+                _save_iso_ed2k_db(db)
+    except Exception:
+        pass
+
+    return jsonify({"ok": True, "size": size})
+
+
 @app.post("/api/iso_rename")
 def api_iso_rename():
 

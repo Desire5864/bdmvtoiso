@@ -215,14 +215,17 @@
   .pc-acts .btn[data-act="copy"],.pc-acts .btn[data-act="hash"],
   .pc-acts .btn[data-act="start"],.pc-acts .btn.primary,
   .iso-acts .btn[data-act="copy"],.iso-acts .btn[data-act="hash"],
+  .iso-acts .btn[data-act="hashiso"],
   .iso-acts .btn[data-act="start"],.iso-acts .btn.primary{
     background:linear-gradient(180deg,#5B8CFF,#3B6BF5);box-shadow:0 2px 6px rgba(59,107,245,.26)}
-  .pc-acts .btn[data-act="rename"],.iso-acts .btn[data-act="rename"]{
+  .pc-acts .btn[data-act="rename"],.iso-acts .btn[data-act="rename"],
+  .iso-acts .btn[data-act="renamesio"]{
     background:linear-gradient(180deg,#2FB3A8,#0E8C9E);box-shadow:0 2px 6px rgba(14,140,158,.22)}
   .pc-acts .btn[data-act="clear"],.iso-acts .btn[data-act="clear"]{
     background:linear-gradient(180deg,#7B8798,#5A6779)}
   .pc-acts .btn[data-act="del"],.pc-acts .btn[data-act="stop"],
-  .iso-acts .btn[data-act="del"],.iso-acts .btn[data-act="stop"]{
+  .iso-acts .btn[data-act="del"],.iso-acts .btn[data-act="deliso"],
+  .iso-acts .btn[data-act="stop"]{
     background:linear-gradient(180deg,#F0577A,#D9455F);box-shadow:0 2px 6px rgba(217,69,95,.24)}
   .pc-acts .btn:hover,.iso-acts .btn:hover{filter:brightness(1.07)}
   .pc-acts .btn:disabled,.iso-acts .btn:disabled{opacity:.45;filter:none}
@@ -1055,7 +1058,8 @@ function renderIso() {
       mid = '<div class="iso-ek" title="' + esc(i.ed2k) + '">' + esc(i.ed2k) + '</div>';
       chip = '<span class="chip done">已完成</span>';
       acts = '<button class="btn" data-act="copy" data-copy="' + esc(i.ed2k) + '">复制</button>' +
-        '<button class="btn" data-act="renamesio" data-file="' + esc(i.file) + '">改名</button>';
+        '<button class="btn" data-act="renamesio" data-file="' + esc(i.file) + '">改名</button>' +
+        '<button class="btn danger" data-act="deliso" data-file="' + esc(i.file) + '">删除</button>';
     } else if (i.busy) {
       const pct = Math.round((i.progress || 0) * 100);
       mid = '<div class="iso-ptop"><span>正在生成 ed2k · 分块校验</span>' +
@@ -1067,7 +1071,8 @@ function renderIso() {
       mid = '<div class="iso-ek">ed2k 尚未生成 · 分块校验约需数分钟</div>';
       chip = '<span class="chip idle">未生成</span>';
       acts = '<button class="btn" data-act="hashiso" data-file="' + esc(i.file) + '">算 ed2k</button>' +
-        '<button class="btn" data-act="renamesio" data-file="' + esc(i.file) + '">改名</button>';
+        '<button class="btn" data-act="renamesio" data-file="' + esc(i.file) + '">改名</button>' +
+        '<button class="btn danger" data-act="deliso" data-file="' + esc(i.file) + '">删除</button>';
     }
     return '<article class="isorow">' +
       '<div class="iso-main"><div class="iso-ttl" title="' + esc(fileTitle) + '">' +
@@ -1318,6 +1323,23 @@ document.addEventListener('click', async e => {
     try { i.ed2k = await ed2kForIso(i.file, p => { i.progress = p; paintIsoProgress(); }); toast('ed2k 已生成 · ' + i.file); }
     catch (err) { toast('ed2k 失败：' + err.message); }
     finally { i.busy = false; renderIso(); }
+    return;
+  }
+
+  if (act === 'deliso') {
+    const file = b.dataset.file || '';
+    const name = file.split('/').pop();
+    if (!confirm('确定删除这个 ISO？\n\n' + name + '\n\n删除后不可恢复，空间立即释放。')) return;
+    b.disabled = true;
+    try {
+      const r = await postJSON('/api/iso_delete', { file: file });
+      state.isos = state.isos.filter(x => x.file !== file);
+      renderIso();
+      toast('已删除 · ' + name);
+    } catch (err) {
+      toast('删除失败：' + err.message);
+      b.disabled = false;
+    }
     return;
   }
 
