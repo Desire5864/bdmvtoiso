@@ -332,12 +332,22 @@ def _save_iso_ed2k_db(db: dict) -> None:
     ISO_ED2K_DB_FILE.write_text(json.dumps(db, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+ISO_EXT_PREFIX = "@data/"
+
+
 def _iso_rel_key(p: Path) -> str:
 
     try:
         return p.resolve().relative_to(ISO_DIR.resolve()).as_posix()
     except Exception:
-        return p.name
+        pass
+    # 源盘目录（原盘/）里的镜像：加前缀区分，便于回查真实路径
+    if not LIB_DIR:
+        try:
+            return ISO_EXT_PREFIX + p.resolve().relative_to(DATA_DIR.resolve()).as_posix()
+        except Exception:
+            pass
+    return p.name
 
 
 def _safe_iso_relpath(rel: str) -> str:
@@ -360,8 +370,26 @@ def _safe_iso_relpath(rel: str) -> str:
 
 
 def _resolved_iso_path(rel: str) -> Path:
+    rel = (rel or "").strip().replace("\\", "/")
+    if rel.startswith(ISO_EXT_PREFIX):
+        sub = _safe_iso_relpath(rel[len(ISO_EXT_PREFIX):])
+        return _resolved_child_under(DATA_DIR, *sub.split("/"))
     rel = _safe_iso_relpath(rel)
     return _resolved_child_under(ISO_DIR, *rel.split("/"))
+
+
+ISO_PRUNE_DIRS = {"BDMV", "CERTIFICATE", "ANY!", "PS3_DISC.SFB"}
+
+
+def _walk_isos(root: Path) -> list[Path]:
+    """遍历目录找 .iso，跳过隐藏目录与 BDMV 这类无关子树。"""
+    out: list[Path] = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if not d.startswith(".") and d not in ISO_PRUNE_DIRS]
+        for fn in filenames:
+            if fn.lower().endswith(".iso"):
+                out.append(Path(dirpath) / fn)
+    return out
 
 
 def _iter_iso_files() -> list[Path]:
@@ -370,13 +398,14 @@ def _iter_iso_files() -> list[Path]:
     try:
         # 扩展名大小写不敏感：qB/站点工具导出的镜像常是 `xxx.ISO`，
         # 用 rglob("*.iso") 在 Linux 上会直接把这类文件漏掉（ISO 库显示为空）
-        for p in ISO_DIR.rglob("*"):
-            if not p.is_file() or p.suffix.lower() != ".iso":
-                continue
-            # 合并库会扫到很深，跳过 .trash 等隐藏目录里的残留
-            if any(part.startswith(".") for part in p.relative_to(ISO_DIR).parts):
-                continue
-            found.append(p)
+        found.extend(_walk_isos(ISO_DIR))
+        # 旧模式下源盘目录里也可能直接扔着 .iso（例如 qB 下载到 原盘/），
+        # 这些以前既不进 ISO 库、也不是 BDMV 资源，等于完全看不见。
+        if not LIB_DIR and DATA_DIR.resolve() != ISO_DIR.resolve():
+            try:
+                found.extend(_walk_isos(DATA_DIR))
+            except OSError:
+                pass
     except OSError:
         pass
     return sorted(found, key=lambda x: _iso_rel_key(x).lower())
