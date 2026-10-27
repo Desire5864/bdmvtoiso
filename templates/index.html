@@ -240,7 +240,7 @@
           border:1px solid var(--line);border-radius:12px;overflow:hidden}
   .isorow:hover{border-color:var(--line-strong)}
   .iso-main{padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
-  .iso-ttl{font-size:15px;font-weight:600;line-height:1.35;word-break:break-word}
+  .iso-ttl{font-size:14px;font-weight:600;line-height:1.5;word-break:break-all;overflow-wrap:anywhere}
   .iso-tags{display:flex;gap:6px;flex-wrap:wrap}
   .iso-tag{display:inline-flex;align-items:center;height:21px;padding:0 8px;border-radius:6px;
            background:var(--surface-2);color:var(--muted);font-size:11.5px;white-space:nowrap;
@@ -1048,9 +1048,8 @@ function renderIso() {
   }
   box.innerHTML = rows.map(i => {
     const ix = state.isos.indexOf(i);
-    const v = isoView(i.file);
-    const tags = v.tags.map((t, k) =>
-      '<span class="iso-tag' + (k < 2 ? ' hi' : '') + '">' + esc(t) + '</span>').join('');
+    // 标题直接用实际文件名（去掉 .iso），不再拆成「中文名 + 胶囊」
+    const fileTitle = i.file.split('/').pop().replace(/\.iso$/i, '');
     let mid, chip, acts;
     if (i.ed2k) {
       mid = '<div class="iso-ek" title="' + esc(i.ed2k) + '">' + esc(i.ed2k) + '</div>';
@@ -1071,8 +1070,8 @@ function renderIso() {
         '<button class="btn" data-act="renamesio" data-file="' + esc(i.file) + '">改名</button>';
     }
     return '<article class="isorow">' +
-      '<div class="iso-main"><div class="iso-ttl">' + esc(v.main) + '</div>' +
-      (tags ? '<div class="iso-tags">' + tags + '</div>' : '') + mid + '</div>' +
+      '<div class="iso-main"><div class="iso-ttl" title="' + esc(fileTitle) + '">' +
+        esc(fileTitle) + '</div>' + mid + '</div>' +
       '<div class="iso-side"><div class="iso-size">' + fmtGB(i.size) + '<small>ISO 体积</small></div>' +
       chip + '<div class="iso-acts">' + acts + '</div></div></article>';
   }).join('');
