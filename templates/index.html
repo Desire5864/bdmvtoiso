@@ -575,7 +575,8 @@
   <form class="modal" id="renameForm">
     <h3>重命名镜像</h3>
     <p>ed2k 链接中的文件名会同步改写，哈希保持不变。</p>
-    <div class="field"><label for="renameInput">文件名</label><input id="renameInput" autocomplete="off" /></div>
+    <div class="field"><label for="renameInput">文件名</label><input id="renameInput" autocomplete="off" />
+      <div id="renameHint" style="margin-top:6px;font-size:11.5px;color:var(--note)"></div></div>
     <div class="modal-foot">
       <button type="button" class="btn ghost" data-act="closeModal">取消</button>
       <button type="submit" class="btn primary">保存</button>
@@ -1012,6 +1013,19 @@ async function doDelete() {
   } catch (err) { toast('删除失败：' + err.message); go.disabled = false; }
 }
 
+function renameBytes(str) {
+  // Linux 单个文件名上限 255 字节（UTF-8），中文一个字 3 字节，超了 rename 会直接 ENAMETOOLONG
+  return new TextEncoder().encode(str || '').length;
+}
+
+function syncRenameHint() {
+  const inp = $('#renameInput'), hint = $('#renameHint');
+  if (!inp || !hint) return;
+  const n = renameBytes(inp.value);
+  hint.textContent = n + ' / 255 字节' + (n > 255 ? '（超出 ' + (n - 255) + '，保存会失败）' : '');
+  hint.style.color = n > 255 ? 'var(--err)' : 'var(--note)';
+}
+
 function splitIsoName(fn) {
   // "[中文名][规格][源名][体积].iso" → 四段
   const body = /\.iso$/i.test(fn) ? fn.slice(0, -4) : fn;
@@ -1362,6 +1376,8 @@ document.addEventListener('click', async e => {
 
   if (act === 'rename' || act === 'renamesio') {
     const inp = $('#renameInput');
+    inp.oninput = syncRenameHint;
+    syncRenameHint();
     if (act === 'rename') {
       const rec = ALL.get(b.dataset.id);
       if (!rec) return;

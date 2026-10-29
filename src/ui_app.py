@@ -206,8 +206,12 @@ def _safe_iso_filename(name: str) -> str:
     if not name.lower().endswith(".iso"):
         name = name + ".iso"
 
-    if len(name) > 240:
-        raise ValueError("name too long")
+    # Linux 单段文件名上限是 255 **字节**（不是字符）：中文一个 3 字节，
+    # 早先用 len(name) > 240 判断字符数，184 个字符 = 280 字节时会漏过，
+    # 直到 os.rename 抛 ENAMETOOLONG 才失败（用户踩到过）。
+    nbytes = len(name.encode("utf-8"))
+    if nbytes > 255:
+        raise ValueError("文件名过长：%d / 255 字节，请再缩短 %d 字节" % (nbytes, nbytes - 255))
     return name
 
 
